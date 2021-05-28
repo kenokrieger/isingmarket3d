@@ -15,12 +15,12 @@ governed by two simple guidelines:
 mathematically speaking is each trader represented by a spin on a three dimensional
 grid. The local field of each spin *S*<sub>i</sub> is given by the equation below
 
-<img src="https://github.com/kenokrieger/isingmarket3d/.images/local_field.png">
+<img src="https://github.com/kenokrieger/isingmarket3d/blob/main/.images/local_field.png">
 
 where *J*<sub>ij</sub> = *j* for the nearest neighbours and 0 otherwise. The spins
 are updated according to a Heatbath dynamic which reads as follows
 
-<img src="https://github.com/kenokrieger/isingmarket3d/.images/spin_updates.png">
+<img src="https://github.com/kenokrieger/isingmarket3d/blob/main/.images/spin_updates.png">
 
 
 The model is thus controlled by the three parameters
