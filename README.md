@@ -5,29 +5,29 @@
 
 ## Outline
 
-This particular model attempts to predict the behaviour of traders in a market
+This particular model attempts to predict the behavior of traders in a market
 governed by two simple guidelines:
 
-- Do as neighbours do
+- Do as neighbors do
 
 - Do what the minority does
 
 mathematically speaking is each trader represented by a spin on a three dimensional
 grid. The local field of each spin *S*<sub>i</sub> is given by the equation below
 
-<img src="https://github.com/kenokrieger/isingmarket3d/blob/main/.images/local_field.png">
+<img src="https://github.com/kenokrieger/isingmarket3d/blob/main/.images/local_field.png" style="height: 20px">
 
-where *J*<sub>ij</sub> = *j* for the nearest neighbours and 0 otherwise. The spins
+where *J*<sub>ij</sub> = *j* for the nearest neighbors and 0 otherwise. The spins
 are updated according to a Heatbath dynamic which reads as follows
 
-<img src="https://github.com/kenokrieger/isingmarket3d/blob/main/.images/spin_updates.png">
+<img src="https://github.com/kenokrieger/isingmarket3d/blob/main/.images/spin_updates.png" style="height: 20px">
 
 
 The model is thus controlled by the three parameters
 
 - &alpha;, which represents the tendency of the traders to be in the minority
 
-- *j*, which affects how likely it is for a trader to pick up the strategy of its neighbour
+- *j*, which affects how likely it is for a trader to pick up the strategy of its neighbor
 
 - &beta;, which controls the randomness
 
@@ -41,3 +41,8 @@ frustration across scales, 2001"</a>)
 
 To compile the code on Ubuntu you need to have the CUDA development toolkit as well
 as a the gcc compiler installed. A simple `make` should be sufficient.
+
+## Sources
+
+The main foundation for this project is the 2d implementation of the ising model
+by <a href="https://github.com/romerojosh">Joshua Romero</a>.
