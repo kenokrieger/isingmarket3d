@@ -1,16 +1,13 @@
 CUDA_HOME=/usr/local/cuda
 CUDACC=$(CUDA_HOME)/bin/nvcc
 CC=gcc
-LINKERFLAGS=-lcurand
-NVCCFLAGS= -std=c++14 -O3 -lineinfo -arch=sm_70 -Xptxas=-v -I$(CUDA_HOME)/include -I src
+LINKERFLAGS= -lcurand
+NVCCFLAGS= $(LINKERFLAGS) -std=c++14 -I$(CUDA_HOME)/include -I src
 
 all: ising3d
 
-ising3d: %.o
-	nvcc -o ising3d $(LINKERFLAGS)
-
-%.o: %.cu:
-	nvcc $(NVCCFLAGS) $<
+ising3d:
+	$(CUDACC) src/kernel.cu src/traders.cu -o build/ising3d $(NVCCFLAGS)
 
 clean:
 	rm *.o

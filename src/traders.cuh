@@ -1,14 +1,17 @@
+#include <iostream>
+
 #include <cuda_fp16.h>
 #include <curand.h>
 #include <cublas_v2.h>
 
+#include "cudamacro.h"
 
 __global__ void init_traders(signed char* traders,
                              const float* __restrict__ random_values,
                              const long long grid_height,
                              const long long grid_width,
                              const long long grid_depth,
-                             float weight = 0.5f,);
+                             float weight = 0.5f);
     /*
     Initialise a given array of traders to contain values of either -1 or 1.
 
@@ -20,7 +23,7 @@ __global__ void init_traders(signed char* traders,
         grid_height: The height of the grid.
         grid_width: The width of the grid.
         grid_depth: The depth of the grid.
-        weight: A float value between 0 and 1 that determines the total relative
+        weight: A float value between 0 and 1 that determines the relative
                 amount of -1 spins.
     */
 
@@ -68,7 +71,8 @@ void update(signed char *d_black_tiles,
             curandGenerator_t rng,
             int *d_global_market,
             float alpha, float beta, float j,
-            long long grid_height, long long grid_width, long long grid_depth);
+            long long grid_height, long long grid_width, long long grid_depth,
+            int threads = 256);
 
     /*
     Update all of the traders by updating the white and black tiles in succesion.
@@ -88,6 +92,3 @@ void update(signed char *d_black_tiles,
         grid_width: The width of the grid.
         grid_depth: The depth of the grid.
     */
-
-// include the source file for the template to work
-#include "traders.cu"

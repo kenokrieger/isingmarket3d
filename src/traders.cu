@@ -1,27 +1,33 @@
+#include <iostream>
+
+#include <cuda_fp16.h>
+#include <curand.h>
+#include <cublas_v2.h>
+
+#include "cudamacro.h"
 
 __global__ void init_traders(signed char* traders,
                              const float* __restrict__ random_values,
                              const long long grid_height,
                              const long long grid_width,
-                             float weight = 0.5f,) {
+                             const long long grid_depth,
+                             float weight)
+{
     // iterate over all traders in parallel and assign each of them
     // a strategy of either +1 or -1
     const long long  thread_id = static_cast<long long>(blockDim.x) * blockIdx.x + threadIdx.x;
-
     // check for out of bound access
     if (thread_id >= grid_width * grid_height) return;
-
     // use random number between 0.0 and 1.0 generated beforehand
-    float random = random_values[thread_id];
-    traders[thread_id] = (random < weight) ? -1 : 1;
+    traders[thread_id] = (random_values[thread_id] < weight) ? -1 : 1;
 }
 
 
 template <bool is_black>
 __global__ void update_strategies(signed char* traders,
-                                  int *d_global_market,
                                   const signed char* __restrict__ checkerboard_agents,
                                   const float* __restrict__ random_values,
+                                  int *d_global_market,
                                   const float alpha,
                                   const float beta,
                                   const float j,
@@ -76,18 +82,20 @@ __global__ void update_strategies(signed char* traders,
         d_global_market[0] -= 2 * old_strategy;
 }
 
-void update(signed char *d_black_tiles, signed char *d_white_tiles,
+void update(signed char *d_black_tiles,
+            signed char *d_white_tiles,
             float* random_values,
             curandGenerator_t rng,
             int *d_global_market,
             float alpha, float beta, float j,
-            long long grid_height, long long grid_width)
+            long long grid_height, long long grid_width, long long grid_depth,
+            int threads)
 {
     int blocks = (grid_height * grid_width / 2 + threads - 1) / threads;
 
     CHECK_CURAND(curandGenerateUniform(rng, random_values, grid_height * grid_width / 2));
-    update_agents<true><<<blocks, threads>>>(d_black_tiles, d_white_tiles, random_values, d_global_market, alpha, beta, j, grid_height, grid_width / 2);
+    update_strategies<true><<<blocks, threads>>>(d_black_tiles, d_white_tiles, random_values, d_global_market, alpha, beta, j, grid_height, grid_width / 2, grid_depth);
 
     CHECK_CURAND(curandGenerateUniform(rng, random_values, grid_height * grid_width / 2));
-    update_agents<false><<<blocks, threads>>>(d_white_tiles, d_black_tiles, random_values, d_global_market, alpha, beta, j, grid_height, grid_width / 2);
+    update_strategies<false><<<blocks, threads>>>(d_white_tiles, d_black_tiles, random_values, d_global_market, alpha, beta, j, grid_height, grid_width / 2, grid_depth);
 }
