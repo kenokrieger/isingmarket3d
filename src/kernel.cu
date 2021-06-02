@@ -10,7 +10,7 @@
 
 // Default parameters
 int device_id = 0;
-int threads = 256;
+int threads = 128;
 const long long grid_height = 1024;
 const long long grid_width = 1024;
 const long long grid_depth = 1024;
@@ -23,7 +23,7 @@ unsigned int seed = std::chrono::steady_clock::now().time_since_epoch().count();
 long long rng_offset = 0;
 float alpha = 0.0f;
 float j = 1.0f;
-float beta = 1 / 1.5f;
+float beta = 0.226f;
 
 int gpuDeviceInit(int device_id) {
     int device_count;
@@ -119,9 +119,13 @@ int main(int argc, char** argv) {
     // Synchronize operations on the GPU with CPU
     CHECK_CUDA(cudaDeviceSynchronize());
 
+    for (int iteration = 0; iteration < 1000; iteration++) {
+        update(d_black_tiles, d_white_tiles, random_values, rng, beta, grid_height, grid_width, grid_depth);
+    }
+
     timer::time_point start = timer::now();
     for (int iteration = 0; iteration < total_updates; iteration++) {
-        update(d_black_tiles, d_white_tiles, random_values, rng, d_global_market, alpha, beta, j, grid_height, grid_width, grid_depth);
+        update(d_black_tiles, d_white_tiles, random_values, rng, beta, grid_height, grid_width, grid_depth);
     }
     timer::time_point stop = timer::now();
 

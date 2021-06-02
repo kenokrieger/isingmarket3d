@@ -32,10 +32,10 @@ template <bool is_black>
 __global__ void update_strategies(signed char* traders,
                                   const signed char* __restrict__ checkerboard_agents,
                                   const float* __restrict__ random_values,
-                                  int *d_global_market,
-                                  const float alpha,
+                                  //int *d_global_market,
+                                  //const float alpha,
                                   const float beta,
-                                  const float j,
+                                  //const float j,
                                   const long long grid_height,
                                   const long long grid_width,
                                   const long long grid_depth);
@@ -69,10 +69,11 @@ void update(signed char *d_black_tiles,
             signed char *d_white_tiles,
             float* random_values,
             curandGenerator_t rng,
-            int *d_global_market,
-            float alpha, float beta, float j,
+            //int *d_global_market,
+            float beta,
+            //float alpha, float beta, float j,
             long long grid_height, long long grid_width, long long grid_depth,
-            int threads = 256);
+            int threads = 128);
 
     /*
     Update all of the traders by updating the white and black tiles in succesion.
