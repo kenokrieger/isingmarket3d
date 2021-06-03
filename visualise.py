@@ -1,36 +1,23 @@
 #! /usr/bin/python3
-from os.path import join
+import numpy as np
+import matplotlib.pyplot as plt
 
-from matplotlib.pyplot import subplots, savefig, close
-from numpy import loadtxt
-
-saves_directory = ".images/lattices/"
-
-
-def save_file(file, saves_directory):
-
-    headers = []
-    with open(file, 'r') as f:
-        header = f.readline()
-        while header[0] == '#':
-            headers.append(header.replace('#', '').replace('\n', ''))
-            header = f.readline()
-    img_name = ", ".join(headers)
-
-    agents = loadtxt(file)
-    img_path = join(saves_directory, img_name + ".png")
-    print("Plotting {}".format(img_name))
-
-    fig, ax = subplots(figsize=(8, 8))
-    ax.set_xticks([])
-    ax.set_yticks([])
-    fig.suptitle(img_name)
-    ax.imshow(agents, cmap="copper")
-    savefig(img_path)
-    close(fig)
-
-
-if __name__ == "__main__":
-    for lid in range(128):
+agents = np.empty((128, 128, 128))
+for lid in range(128):
         file = f".data/lid={lid}.dat"
-        save_file(file, saves_directory)
+        agents[:, :, lid] = np.loadtxt(file)
+
+agents += 1
+agents /= 2
+
+filled = np.array([
+    [[1, 0, 1]]
+])
+
+for slice in range(16, 128, 16):
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection="3d")
+    ax.voxels(agents[slice - 16:slice, slice - 16:slice, slice - 16:slice], facecolors="grey", shade=False, alpha=0.3)
+    ax.view_init(8, 64)
+    plt.savefig(f".images/lattice3d_{slice}.png", dpi=300)
+    plt.close(fig)
