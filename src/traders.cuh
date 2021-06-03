@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 
 #include <cuda_fp16.h>
 #include <curand.h>
@@ -6,12 +7,13 @@
 
 #include "cudamacro.h"
 
-__global__ void init_traders(signed char* traders,
-                             const float* __restrict__ random_values,
-                             const long long grid_height,
-                             const long long grid_width,
-                             const long long grid_depth,
-                             float weight = 0.5f);
+
+__global__ void fill_array(signed char* traders,
+                           const float* __restrict__ random_values,
+                           const long long grid_height,
+                           const long long grid_width,
+                           const long long grid_depth,
+                           float weight = 0.5f);
     /*
     Initialise a given array of traders to contain values of either -1 or 1.
 
@@ -26,6 +28,12 @@ __global__ void init_traders(signed char* traders,
         weight: A float value between 0 and 1 that determines the relative
                 amount of -1 spins.
     */
+
+
+void init_traders(signed char* d_black_tiles, signed char* d_white_tiles,
+                  curandGenerator_t rng, float* random_values,
+                  long long grid_width, long long grid_height, long long grid_depth,
+                  int threads);
 
 
 template <bool is_black>
@@ -72,7 +80,7 @@ void update(signed char *d_black_tiles,
             int *d_global_market,
             float alpha, float beta, float j,
             long long grid_height, long long grid_width, long long grid_depth,
-            int threads = 128);
+            int threads = 64);
 
     /*
     Update all of the traders by updating the white and black tiles in succesion.
@@ -92,3 +100,13 @@ void update(signed char *d_black_tiles,
         grid_width: The width of the grid.
         grid_depth: The depth of the grid.
     */
+
+
+void write_lattice(signed char *d_black_tiles,
+                   signed char *d_white_tiles,
+                   std::string fileprefix,
+                   long long grid_width, long long grid_height, long long grid_depth,
+                   float alpha, float beta, float j,
+                   int *d_global_market,
+                   unsigned int seed,
+                   int number_of_updates);

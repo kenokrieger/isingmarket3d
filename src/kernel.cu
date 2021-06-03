@@ -10,11 +10,11 @@
 
 // Default parameters
 int device_id = 0;
-int threads = 128;
+int threads = 64;
 const long long grid_height = 128;
 const long long grid_width = 128;
 const long long grid_depth = 128;
-int total_updates = 100000;
+int total_updates = 10000;
 unsigned int seed = std::chrono::steady_clock::now().time_since_epoch().count();
 // the rng offset can be used to return the random number generator to a specific
 // state of a simulation. It is equal to the total number of random numbers
@@ -89,13 +89,11 @@ int main(int argc, char** argv) {
     signed char *d_black_tiles, *d_white_tiles;
     float *random_values;
     curandGenerator_t rng;
-    signed char *h_black_tiles, *h_white_tiles;
 
     // The global market represents the sum over the strategies of each
     // agent. Agents will choose a strategy contrary to the sign of the
     // global market.
     int *d_global_market;
-    int *h_global_market;
 
     // Set up cuRAND generator
     CHECK_CURAND(curandCreateGenerator(&rng, CURAND_RNG_PSEUDO_PHILOX4_32_10));
@@ -107,20 +105,8 @@ int main(int argc, char** argv) {
     CHECK_CUDA(cudaMalloc(&d_black_tiles, grid_depth * grid_height * grid_width / 2 * sizeof(*d_black_tiles)));
     CHECK_CUDA(cudaMalloc(&random_values, grid_depth * grid_height * grid_width / 2 * sizeof(*random_values)));
     CHECK_CUDA(cudaMalloc(&d_global_market, sizeof(*d_global_market)));
-    h_black_tiles = (signed char*)malloc(grid_depth * grid_height * grid_width / 2 * sizeof(*h_black_tiles));
-    h_white_tiles = (signed char*)malloc(grid_depth * grid_height * grid_width / 2 * sizeof(*h_white_tiles));
-    h_global_market = (int*)malloc(sizeof(*h_global_market));
 
-    dim3 threads_per_block(threads, threads, threads);
-    dim3 number_of_blocks((grid_height + threads_per_block.x -1) / threads_per_block.x,
-                          (grid_width / 2 + threads_per_block.y -1) / threads_per_block.y,
-                          (grid_depth + threads_per_block.z - 1 / threads_per_block.z));
-
-    CHECK_CURAND(curandGenerateUniform(rng, random_values, grid_depth * grid_height * grid_width / 2));
-    init_traders<<<number_of_blocks, threads_per_block>>>(d_black_tiles, random_values, grid_height, grid_width / 2, grid_depth);
-    CHECK_CURAND(curandGenerateUniform(rng, random_values, grid_depth * grid_height * grid_width / 2));
-    init_traders<<<number_of_blocks, threads_per_block>>>(d_white_tiles, random_values, grid_height, grid_width / 2, grid_depth);
-
+    init_traders(d_black_tiles, d_white_tiles, rng, random_values, grid_width, grid_height, grid_depth, threads);
     // Synchronize operations on the GPU with CPU
     CHECK_CUDA(cudaDeviceSynchronize());
 
@@ -135,5 +121,7 @@ int main(int argc, char** argv) {
     printf("Total computing time: %f\n", duration * 1e-6);
     printf("Updates per nanosecond: %f\n", spin_updates_per_nanosecond);
     CHECK_CUDA(cudaDeviceSynchronize());
+
+    write_lattice(d_black_tiles, d_white_tiles, ".data/", grid_width, grid_height, grid_depth, alpha, beta, j, d_global_market, seed, total_updates);
     return 0;
 }
