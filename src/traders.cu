@@ -56,8 +56,8 @@ __global__ void update_strategies(signed char* traders,
     const int col = blockDim.x * blockIdx.x + threadIdx.x;
     const int lattice_id = blockDim.z;
 
-    __shared__ int shared_global_market[1];
-    shared_global_market[0] = d_global_market[0];
+    //__shared__ int shared_global_market[1];
+    //shared_global_market[0] = d_global_market[0];
     // check for out of bound access
     if (row >= grid_height || col >= grid_width || lattice_id >= grid_depth) return;
 
@@ -90,18 +90,18 @@ __global__ void update_strategies(signed char* traders,
           + checkerboard_agents[back_neighbor_lattice * grid_height * grid_width + row * grid_width + col]
           );
 
-    signed char old_strategy = traders[row * grid_width + col];
-    double market_coupling = -alpha / (grid_width * grid_height) * abs(shared_global_market[0]);
-    double field = neighbor_coupling + market_coupling * old_strategy;
+    //signed char old_strategy = traders[row * grid_width + col];
+    //double market_coupling = -alpha / (grid_width * grid_height) * abs(shared_global_market[0]);
+    //double field = neighbor_coupling + market_coupling * old_strategy;
     // Determine whether to flip spin
-    float probability = 1 / (1 + exp(-2.0f * beta * field));
+    float probability = 1 / (1 + exp(-2.0f * beta * neighbor_coupling));//field));
     long long index = lattice_id * grid_width * grid_height + row * grid_width + col;
     signed char new_strategy = random_values[index] < probability ? 1 : -1;
     traders[index] = new_strategy;
-    __syncthreads();
+    //__syncthreads();
     // If the strategy was changed remove the old value from the sum and add the new value.
-    if (new_strategy != old_strategy)
-        d_global_market[0] -= 2 * old_strategy;
+    //if (new_strategy != old_strategy)
+    //    d_global_market[0] -= 2 * old_strategy;
 }
 
 

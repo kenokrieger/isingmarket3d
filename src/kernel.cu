@@ -83,12 +83,15 @@ int main(int argc, char** argv) {
         }
     }
     timer::time_point stop = timer::now();
-    file.close();
+
 
     double duration = (double) std::chrono::duration_cast<std::chrono::microseconds>(stop - start).count();
     double spin_updates_per_nanosecond = grid_depth * grid_width * grid_height / duration * 1e-3 * total_updates;
     printf("Total computing time: %f\n", duration * 1e-6);
+    file << "# Total computing time: " << std::to_string(duration * 1e-6) << std::endl;
     printf("Updates per nanosecond: %f\n", spin_updates_per_nanosecond);
+    file << "# updates per nanosecond: " << std::to_string(spin_updates_per_nanosecond) << std::endl;
+    file.close();
     CHECK_CUDA(cudaDeviceSynchronize());
 
     write_lattice(d_black_tiles, d_white_tiles, ".data/", grid_width, grid_height, grid_depth, alpha, beta, j, d_global_market, seed, total_updates);
