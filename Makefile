@@ -10,3 +10,6 @@ ising3d:
 
 clean:
 	rm *.o
+
+run:
+	$(CUDACOMPILER) $(SOURCE_FILES) $(NVCCFLAGS) --run

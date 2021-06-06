@@ -56,6 +56,8 @@ __global__ void update_strategies(signed char* traders,
     const int col = blockDim.x * blockIdx.x + threadIdx.x;
     const int lattice_id = blockDim.z;
 
+    __shared__ int shared_global_market[1];
+    shared_global_market[0] = d_global_market[0];
     // check for out of bound access
     if (row >= grid_height || col >= grid_width || lattice_id >= grid_depth) return;
 
@@ -78,9 +80,7 @@ __global__ void update_strategies(signed char* traders,
     } else {
         horizontal_neighbor_col = (row % 2) ? right_neighbor_col : left_neighbor_col;
     }
-    // Compute sum of nearest neighbor spins:
-    // Multiply the row with the grid-width to receive
-    // the actual index in the array
+    // Compute sum of nearest neighbor spins
     signed char neighbor_coupling = j * (
             checkerboard_agents[lattice_id * grid_height * grid_width + upper_neighbor_row * grid_width + col]
           + checkerboard_agents[lattice_id * grid_height * grid_width + lower_neighbor_row * grid_width + col]
@@ -91,7 +91,7 @@ __global__ void update_strategies(signed char* traders,
           );
 
     signed char old_strategy = traders[row * grid_width + col];
-    double market_coupling = -alpha / (grid_width * grid_height) * abs(d_global_market[0]);
+    double market_coupling = -alpha / (grid_width * grid_height) * abs(shared_global_market[0]);
     double field = neighbor_coupling + market_coupling * old_strategy;
     // Determine whether to flip spin
     float probability = 1 / (1 + exp(-2.0f * beta * field));
