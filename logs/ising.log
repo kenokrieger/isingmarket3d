@@ -1,0 +1,14 @@
+08-06-2021 12-45-11
+128x128x128
+seed: 1234
+total updates: 100
+total computing time: 0.140666
+updates per nanosecond: 1.490873
+-----------------------------------
+08.06.2021 12:46:38
+128x128x128
+seed: 1234
+total updates: 10000
+total computing time: 12.272307
+updates per nanosecond: 1.708849
+-----------------------------------

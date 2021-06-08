@@ -47,7 +47,7 @@ template <bool is_black>
 __global__ void update_strategies(signed char* traders,
                                   const signed char* __restrict__ checkerboard_agents,
                                   const float* __restrict__ random_values,
-                                  int *d_global_market,
+                                  int global_market,
                                   const float alpha,
                                   const float beta,
                                   const float j,
@@ -58,9 +58,6 @@ __global__ void update_strategies(signed char* traders,
     const int row = blockIdx.y;
     const int col = blockDim.x * blockIdx.x + threadIdx.x;
     const int lattice_id = blockDim.z;
-
-    __shared__ int shared_global_market[1];
-    shared_global_market[0] = d_global_market[0];
 
     // check for out of bound access
     if (row >= grid_height || col >= grid_width || lattice_id >= grid_depth) return;
@@ -96,16 +93,12 @@ __global__ void update_strategies(signed char* traders,
           );
 
     signed char old_strategy = traders[index];
-    double market_coupling = -alpha / (grid_width * grid_height * grid_depth) * abs(shared_global_market[0]);
+    double market_coupling = -alpha / (grid_width * grid_height * grid_depth) * abs(global_market);
     double field = neighbor_coupling + market_coupling * old_strategy;
     // Determine whether to flip spin
     float probability = 1 / (1 + exp(-2.0f * beta * field));
     signed char new_strategy = random_values[index] < probability ? 1 : -1;
     traders[index] = new_strategy;
-    __syncthreads();
-    // If the strategy was changed remove the old value from the sum and add the new value.
-    if (new_strategy != old_strategy)
-        d_global_market[0] -= 2 * old_strategy;
 }
 
 
@@ -113,7 +106,7 @@ void update(signed char *d_black_tiles,
             signed char *d_white_tiles,
             float* random_values,
             curandGenerator_t rng,
-            int *d_global_market,
+            int global_market,
             float alpha, float beta, float j,
             long long grid_height, long long grid_width, long long grid_depth,
             int threads = 64)
@@ -121,10 +114,10 @@ void update(signed char *d_black_tiles,
     dim3 blocks((grid_width / 2 + threads - 1) / threads, grid_height, grid_depth);
 
     CHECK_CURAND(curandGenerateUniform(rng, random_values, grid_depth * grid_height * grid_width / 2));
-    update_strategies<true><<<blocks, threads>>>(d_black_tiles, d_white_tiles, random_values, d_global_market, alpha, beta, j, grid_height, grid_width / 2, grid_depth);
+    update_strategies<true><<<blocks, threads>>>(d_black_tiles, d_white_tiles, random_values, global_market, alpha, beta, j, grid_height, grid_width / 2, grid_depth);
 
     CHECK_CURAND(curandGenerateUniform(rng, random_values, grid_depth * grid_height * grid_width / 2));
-    update_strategies<false><<<blocks, threads>>>(d_white_tiles, d_black_tiles, random_values, d_global_market, alpha, beta, j, grid_height, grid_width / 2, grid_depth);
+    update_strategies<false><<<blocks, threads>>>(d_white_tiles, d_black_tiles, random_values, global_market, alpha, beta, j, grid_height, grid_width / 2, grid_depth);
 }
 
 
@@ -133,18 +126,16 @@ void write_lattice(signed char *d_black_tiles,
                    std::string fileprefix,
                    long long grid_width, long long grid_height, long long grid_depth,
                    float alpha, float beta, float j,
-                   int *d_global_market,
+                   int global_market,
                    unsigned int seed,
                    int number_of_updates)
 {
     signed char *h_black_tiles, *h_white_tiles;
-    int *h_global_market;
     bool use_black;
 
     h_black_tiles = (signed char*)malloc(grid_depth * grid_height * grid_width / 2 * sizeof(*h_black_tiles));
     h_white_tiles = (signed char*)malloc(grid_depth * grid_height * grid_width / 2 * sizeof(*h_white_tiles));
-    h_global_market = (int*)malloc(sizeof(*h_global_market));
-    CHECK_CUDA(cudaMemcpy(h_global_market, d_global_market, sizeof(*d_global_market), cudaMemcpyDeviceToHost));
+
     CHECK_CUDA(cudaMemcpy(h_white_tiles, d_white_tiles, grid_depth * grid_height * grid_width / 2 * sizeof(*d_white_tiles), cudaMemcpyDeviceToHost));
     CHECK_CUDA(cudaMemcpy(h_black_tiles, d_black_tiles, grid_depth * grid_height * grid_width / 2 * sizeof(*d_black_tiles), cudaMemcpyDeviceToHost));
 
@@ -163,7 +154,7 @@ void write_lattice(signed char *d_black_tiles,
         file << '#' << "beta = " << beta << std::endl;
         file << '#' << "alpha = " << alpha << std::endl;
         file << '#' << "j = " << j << std::endl;
-        file << '#' << "market = " << h_global_market[0] << std::endl;
+        file << '#' << "market = " << global_market << std::endl;
         file << '#' << "seed = " << seed << std::endl;
         file << '#' << "total updates = " << number_of_updates << std::endl;
 
@@ -183,7 +174,6 @@ void write_lattice(signed char *d_black_tiles,
         file.close();
     }
 
-    free(h_global_market);
     free(h_black_tiles);
     free(h_white_tiles);
 }
