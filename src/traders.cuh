@@ -91,8 +91,7 @@ void update(signed char *d_black_tiles,
         d_white_tiles: A pointer to the device array containing the white tiles.
         random_values: A device array containing/to be filled with random values.
         rng: The generator for the random numbers.
-        d_global_market: A pointer to the device integer containing the value of
-                         the sum over all traders.
+        global_market: The sum over all traders' strategies.
         alpha: A parameter controlling the strength of the market-coupling.
         beta: A parameter controlling the randomness. The greater beta the
               smaller the randomness.
@@ -111,10 +110,53 @@ void write_lattice(signed char *d_black_tiles,
                    int global_market,
                    unsigned int seed,
                    int number_of_updates);
+    /*
+    Write the array to multiple files where each file contains one 2d slice of
+    the whole array.
+
+    Args:
+        d_black_tiles: A pointer to the device array containg the black tiles.
+        d_white_tiles: A pointer to the device array containing the white tiles.
+        fileprefix: A prefix for the files to save, e.g. testrun_lattice_.
+        grid_height: The height of the grid.
+        grid_width: The width of the grid.
+        grid_depth: The depth of the grid.
+        alpha: A parameter controlling the strength of the market-coupling.
+        beta: A parameter controlling the randomness. The greater beta the
+              smaller the randomness.
+        j: A parameter controlling the strength of the neighbor-coupling.
+        global_market: The sum over all traders' strategies.
+        seed: The seed of the random number generator used.
+        number_of_updates: The total number of updates.
+    */
 
 
-void read_from_file(std::string fileprefix, signed char* d_black_tiles, signed char* d_white_tiles,
-                   const long long grid_height, const long long grid_width, const long long grid_depth);
+
+void read_from_file(std::string fileprefix,
+                    signed char* d_black_tiles,
+                    signed char* d_white_tiles,
+                    const long long grid_height, const long long grid_width, const long long grid_depth);
+    /*
+    Reads an existing lattice configuration from multiple files.
+
+    Args:
+        fileprefix: The prefix that all files share.
+        d_black_tiles: A pointer to the device array to be filled with the values for the black tiles.
+        d_white_tiles: A pointer to the device array to be filled with the values for the white tiles.
+        grid_height: The height of the grid.
+        grid_width: The width of the grid.
+        grid_depth: The depth of the grid.
+    */
 
 
 int sum_array(const signed char* d_array, int size);
+    /*
+    Compute the total sum over a given array.
+
+    Args:
+        d_array: The pointer to the array on the device to compute the sum of.
+        size: The number of items in the array.
+
+    Returns:
+        The value of all the elements summed.
+    */
