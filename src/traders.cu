@@ -4,8 +4,11 @@
 #include <cuda_fp16.h>
 #include <curand.h>
 #include <cublas_v2.h>
+#include <cub/cub.cuh>
 
 #include "cudamacro.h"
+
+#define CUB_CHUNK_SIZE ((1ll<<31) - (1ll<<28))
 
 
 __global__ void fill_array(signed char* traders,
@@ -56,11 +59,13 @@ __global__ void update_strategies(signed char* traders,
     const int col = blockDim.x * blockIdx.x + threadIdx.x;
     const int lattice_id = blockDim.z;
 
-    //__shared__ int shared_global_market[1];
-    //shared_global_market[0] = d_global_market[0];
+    __shared__ int shared_global_market[1];
+    shared_global_market[0] = d_global_market[0];
+
     // check for out of bound access
     if (row >= grid_height || col >= grid_width || lattice_id >= grid_depth) return;
 
+    long long index = lattice_id * grid_width * grid_height + row * grid_width + col;
     // determine nearest neighbors on the opposite grid
     int lower_neighbor_row = (row + 1 < grid_height) ? row + 1 : 0;
     int upper_neighbor_row = (row - 1 >= 0) ? row - 1: grid_height - 1;
@@ -84,24 +89,23 @@ __global__ void update_strategies(signed char* traders,
     signed char neighbor_coupling = j * (
             checkerboard_agents[lattice_id * grid_height * grid_width + upper_neighbor_row * grid_width + col]
           + checkerboard_agents[lattice_id * grid_height * grid_width + lower_neighbor_row * grid_width + col]
-          + checkerboard_agents[lattice_id * grid_height * grid_width + row * grid_width + col]
+          + checkerboard_agents[index]
           + checkerboard_agents[lattice_id * grid_height * grid_width + row * grid_width + horizontal_neighbor_col]
           + checkerboard_agents[front_neighbor_lattice * grid_height * grid_width + row * grid_width + col]
           + checkerboard_agents[back_neighbor_lattice * grid_height * grid_width + row * grid_width + col]
           );
 
-    //signed char old_strategy = traders[row * grid_width + col];
-    //double market_coupling = -alpha / (grid_width * grid_height) * abs(shared_global_market[0]);
-    //double field = neighbor_coupling + market_coupling * old_strategy;
+    signed char old_strategy = traders[index];
+    double market_coupling = -alpha / (grid_width * grid_height * grid_depth) * abs(shared_global_market[0]);
+    double field = neighbor_coupling + market_coupling * old_strategy;
     // Determine whether to flip spin
-    float probability = 1 / (1 + exp(-2.0f * beta * neighbor_coupling));//field));
-    long long index = lattice_id * grid_width * grid_height + row * grid_width + col;
+    float probability = 1 / (1 + exp(-2.0f * beta * field));
     signed char new_strategy = random_values[index] < probability ? 1 : -1;
     traders[index] = new_strategy;
-    //__syncthreads();
+    __syncthreads();
     // If the strategy was changed remove the old value from the sum and add the new value.
-    //if (new_strategy != old_strategy)
-    //    d_global_market[0] -= 2 * old_strategy;
+    if (new_strategy != old_strategy)
+        d_global_market[0] -= 2 * old_strategy;
 }
 
 
@@ -182,4 +186,101 @@ void write_lattice(signed char *d_black_tiles,
     free(h_global_market);
     free(h_black_tiles);
     free(h_white_tiles);
+}
+
+
+void read_from_file(std::string fileprefix, signed char* d_black_tiles, signed char* d_white_tiles,
+                    const long long grid_height, const long long grid_width, const long long grid_depth)
+{
+    std::ifstream file;
+    std::string filename;
+    signed char* h_black_tiles;
+    signed char* h_white_tiles;
+
+    h_black_tiles = (signed char*) malloc(grid_depth * grid_height * grid_width / 2 * sizeof(*h_black_tiles));
+    h_white_tiles = (signed char*) malloc(grid_depth * grid_height * grid_width / 2 * sizeof(*h_white_tiles));
+
+    std::string line = "";
+    std::string tmp = "";
+    bool use_black;
+
+    for (int lattice_id = 0; lattice_id < grid_depth; lattice_id++) {
+        filename = fileprefix + std::to_string(lattice_id) + ".dat";
+        file.open(filename);
+        if (!file.is_open()) {
+            printf("Input file could not be read");
+            return;
+        }
+        line = "";
+        tmp = "";
+        int row = 0;
+        int col = 0;
+
+        while (getline(file, line)) {
+
+            if (line[0] == '#') continue;
+            // add seperator to the end of the line
+            col = 0;
+            for (int idx = 0; idx < line.length(); idx++) {
+                // checks for seperator character
+                if (line[idx] != ' ' and line[idx] != '\n') {
+                    tmp += line[idx];
+                }
+                else {
+                    use_black = row % 2 == col % 2;
+                    if (lattice_id % 2) use_black = !use_black;
+
+                    if (use_black) {
+                        h_black_tiles[lattice_id * grid_height * grid_width / 2 + row * grid_width / 2 + col / 2] = std::stoi(tmp);
+                    } else {
+                        h_white_tiles[lattice_id * grid_height * grid_width / 2 + row * grid_width / 2 + col / 2] = std::stoi(tmp);
+                    }
+                    tmp = "";
+                    col++;
+                }
+            }
+            row++;
+        }
+        file.close();
+    }
+
+    CHECK_CUDA(cudaMemcpy(d_black_tiles, h_black_tiles, grid_depth * grid_height * grid_width / 2 * sizeof(*h_black_tiles), cudaMemcpyHostToDevice));
+    CHECK_CUDA(cudaMemcpy(d_white_tiles, h_white_tiles, grid_depth * grid_height * grid_width / 2 * sizeof(*h_white_tiles), cudaMemcpyHostToDevice));
+
+    free(h_black_tiles);
+    free(h_white_tiles);
+}
+
+
+int sum_array(const signed char* d_arr, int size)
+{
+    // Reduce
+    int* d_sum;
+    int nchunks = (size + CUB_CHUNK_SIZE - 1)/ CUB_CHUNK_SIZE;
+    CHECK_CUDA(cudaMalloc(&d_sum, nchunks * sizeof(*d_sum)));
+    size_t temp_storage_bytes = 0;
+    // When d_temp_storage is NULL, no work is done and the required allocation
+    // size is returned in temp_storage_bytes.
+    void* d_temp_storage = NULL;
+    // determine temporary device storage requirements
+    CHECK_CUDA(cub::DeviceReduce::Sum(d_temp_storage, temp_storage_bytes, d_arr, d_sum, CUB_CHUNK_SIZE));
+    CHECK_CUDA(cudaMalloc(&d_temp_storage, temp_storage_bytes));
+
+    for (int i = 0; i < nchunks; i++) {
+        CHECK_CUDA(cub::DeviceReduce::Sum(d_temp_storage, temp_storage_bytes, &d_arr[i * CUB_CHUNK_SIZE], d_sum + i,
+                             std::min((long long) CUB_CHUNK_SIZE, size - i * CUB_CHUNK_SIZE)));
+    }
+
+    int* h_sum;
+    h_sum = (int*)malloc(nchunks * sizeof(*h_sum));
+    CHECK_CUDA(cudaMemcpy(h_sum, d_sum, nchunks * sizeof(*d_sum), cudaMemcpyDeviceToHost));
+    int total_sum = 0;
+
+    for (int i = 0; i < nchunks; i++) {
+      total_sum += h_sum[i];
+    }
+    CHECK_CUDA(cudaFree(d_sum));
+    CHECK_CUDA(cudaFree(d_temp_storage));
+    free(h_sum);
+    return total_sum;
 }

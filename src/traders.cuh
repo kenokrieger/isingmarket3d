@@ -4,6 +4,7 @@
 #include <cuda_fp16.h>
 #include <curand.h>
 #include <cublas_v2.h>
+#include <cub/cub.cuh>
 
 #include "cudamacro.h"
 
@@ -110,3 +111,10 @@ void write_lattice(signed char *d_black_tiles,
                    int *d_global_market,
                    unsigned int seed,
                    int number_of_updates);
+
+
+void read_from_file(std::string fileprefix, signed char* d_black_tiles, signed char* d_white_tiles,
+                   const long long grid_height, const long long grid_width, const long long grid_depth);
+
+
+int sum_array(const signed char* d_array, int size);
