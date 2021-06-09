@@ -34,7 +34,7 @@ __global__ void fill_array(signed char* traders,
 void init_traders(signed char* d_black_tiles, signed char* d_white_tiles,
                   curandGenerator_t rng, float* random_values,
                   long long grid_width, long long grid_height, long long grid_depth,
-                  int threads);
+                  int threads = 64);
 
 
 template <bool is_black>
@@ -79,7 +79,7 @@ void update(signed char *d_black_tiles,
             const double market_coupling,
             const float reduced_j,
             const long long grid_height, const long long grid_width, const long long grid_depth,
-            int threads = 64);
+            int threads = 16);
 
     /*
     Update all of the traders by updating the white and black tiles in succesion.

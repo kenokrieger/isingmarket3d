@@ -14,7 +14,7 @@ using namespace std;
 
 // Default parameters
 int device_id = 0;
-int threads = 64;
+int threads = 16;
 
 //seed = std::chrono::steady_clock::now().time_since_epoch().count();
 
@@ -111,12 +111,12 @@ int main(int argc, char** argv) {
     CHECK_CUDA(cudaMalloc(&d_black_tiles, grid_depth * grid_height * grid_width / 2 * sizeof(*d_black_tiles)));
     CHECK_CUDA(cudaMalloc(&random_values, grid_depth * grid_height * grid_width / 2 * sizeof(*random_values)));
 
-    init_traders(d_black_tiles, d_white_tiles, rng, random_values, grid_width, grid_height, grid_depth, threads);
+    init_traders(d_black_tiles, d_white_tiles, rng, random_values, grid_width, grid_height, grid_depth);
     // Synchronize operations on the GPU with CPU
     CHECK_CUDA(cudaDeviceSynchronize());
 
 
-    file.open("reference_data/magnetisation.dat");
+    file.open("magnetisation.dat");
     timer::time_point start = timer::now();
     for (int iteration = 0; iteration < total_updates; iteration++) {
         update(d_black_tiles, d_white_tiles, random_values, rng, market_coupling, reduced_j, grid_height, grid_width, grid_depth);
@@ -133,7 +133,7 @@ int main(int argc, char** argv) {
     timer::time_point stop = timer::now();
     file.close();
 
-    file.open("../../logs/ising.log", std::ios_base::app);
+    file.open("logs/ising.log", std::ios_base::app);
     auto t = std::time(nullptr);
     auto tm = *std::localtime(&t);
     file << std::put_time(&tm, "%d.%m.%Y %H:%M:%S") << std::endl;

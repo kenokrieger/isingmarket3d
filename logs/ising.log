@@ -306,3 +306,59 @@ total updates: 10000
 total computing time: 11.421834
 updates per nanosecond: 1.836090
 -----------------------------------
+09.06.2021 10:47:30
+128x128x128
+seed: 1234
+total updates: 10000
+total computing time: 8.644052
+updates per nanosecond: 2.426121
+-----------------------------------
+09.06.2021 10:55:25
+128x128x128
+seed: 1234
+total updates: 10000
+total computing time: 8.619800
+updates per nanosecond: 2.432947
+-----------------------------------
+09.06.2021 10:56:32
+128x128x128
+seed: 1234
+total updates: 10000
+total computing time: 8.044684
+updates per nanosecond: 2.606879
+----------------------------------- # still very slow, seems to be block thread combination
+09.06.2021 10:56:58
+128x128x128
+seed: 1234
+total updates: 10000
+total computing time: 8.078775
+updates per nanosecond: 2.595879
+-----------------------------------
+09.06.2021 21:55:30
+128x128x128
+seed: 1234
+total updates: 10000
+total computing time: 8.075984
+updates per nanosecond: 2.596776
+-----------------------------------
+09.06.2021 21:57:46
+128x128x128
+seed: 1234
+total updates: 10000
+total computing time: 8.073128
+updates per nanosecond: 2.597694
+-----------------------------------
+09.06.2021 21:59:50
+128x128x128
+seed: 1234
+total updates: 10000
+total computing time: 8.039824
+updates per nanosecond: 2.608455
+-----------------------------------
+09.06.2021 22:01:39
+128x128x128
+seed: 1234
+total updates: 10000
+total computing time: 11.092852
+updates per nanosecond: 1.890544
+-----------------------------------

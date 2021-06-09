@@ -35,7 +35,6 @@ void init_traders(signed char* d_black_tiles, signed char* d_white_tiles,
                   int threads = 64)
 {
     dim3 blocks((grid_width / 2 + threads - 1) / threads, grid_height, grid_depth);
-
     CHECK_CURAND(curandGenerateUniform(rng, random_values, grid_depth * grid_height * grid_width / 2));
     fill_array<<<blocks, threads>>>(d_black_tiles, random_values, grid_height, grid_width / 2, grid_depth);
     CHECK_CURAND(curandGenerateUniform(rng, random_values, grid_depth * grid_height * grid_width / 2));
@@ -53,9 +52,9 @@ __global__ void update_strategies(signed char* traders,
                                   const long long grid_width,
                                   const long long grid_depth)
 {
-    const int row = blockIdx.y;
-    const int col = blockDim.x * blockIdx.x + threadIdx.x;
-    const int lattice_id = blockDim.z;
+    const int col = blockIdx.x * blockDim.x + threadIdx.x;
+    const int row = blockIdx.y * blockDim.y + threadIdx.y;
+    const int lattice_id = blockIdx.z;
 
     // check for out of bound access
     if (row >= grid_height || col >= grid_width || lattice_id >= grid_depth) return;
@@ -81,7 +80,7 @@ __global__ void update_strategies(signed char* traders,
         horizontal_neighbor_col = (row % 2) ? right_neighbor_col : left_neighbor_col;
     }
     // Compute sum of nearest neighbor spins
-    signed char neighbor_coupling = reduced_j * (
+    double neighbor_coupling = reduced_j * (
             checkerboard_agents[lattice_id * grid_height * grid_width + upper_neighbor_row * grid_width + col]
           + checkerboard_agents[lattice_id * grid_height * grid_width + lower_neighbor_row * grid_width + col]
           + checkerboard_agents[index]
@@ -106,15 +105,16 @@ void update(signed char *d_black_tiles,
             const double market_coupling,
             const float reduced_j,
             const long long grid_height, const long long grid_width, const long long grid_depth,
-            int threads = 64)
+            int threads = 16)
 {
-    dim3 blocks((grid_width / 2 + threads - 1) / threads, grid_height, grid_depth);
+    dim3 blocks(grid_width / threads, grid_width / threads, grid_depth);
+    dim3 threads_per_block(threads / 2, threads);
 
     CHECK_CURAND(curandGenerateUniform(rng, random_values, grid_depth * grid_height * grid_width / 2));
-    update_strategies<true><<<blocks, threads>>>(d_black_tiles, d_white_tiles, random_values, market_coupling, reduced_j, grid_height, grid_width / 2, grid_depth);
+    update_strategies<true><<<blocks, threads_per_block>>>(d_black_tiles, d_white_tiles, random_values, market_coupling, reduced_j, grid_height, grid_width / 2, grid_depth);
 
     CHECK_CURAND(curandGenerateUniform(rng, random_values, grid_depth * grid_height * grid_width / 2));
-    update_strategies<false><<<blocks, threads>>>(d_white_tiles, d_black_tiles, random_values, market_coupling, reduced_j, grid_height, grid_width / 2, grid_depth);
+    update_strategies<false><<<blocks, threads_per_block>>>(d_white_tiles, d_black_tiles, random_values, market_coupling, reduced_j, grid_height, grid_width / 2, grid_depth);
 }
 
 
