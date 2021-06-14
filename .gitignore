@@ -2,4 +2,4 @@ build/*
 !build/.gitkeep
 .data/*
 !.data/.gitkeep
-.images/lattices/*.png
+images/lattices/*.png

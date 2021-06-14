@@ -126,6 +126,8 @@ __global__ void update_strategies(signed char* traders,
     // index differing by +1 or -1 depending on the position of the
     // agent on the grid
     int horizontal_neighbor_col;
+    // flip is black if lattice id is uneven
+    if (lattice_id % 2) is_black = !is_black;
     if (is_black) {
         horizontal_neighbor_col = (row % 2) ? left_neighbor_col : right_neighbor_col;
     } else {
