@@ -116,15 +116,12 @@ int main(int argc, char** argv) {
     for (int iteration = 0; iteration < total_updates; iteration++) {
         int global_market = update(d_black_tiles, d_white_tiles, d_black_plus_white, random_values,
                                    d_probabilities, rng, reduced_alpha, reduced_j, grid_height, grid_width, grid_depth);
+        file << global_market << ' ' << std::flush;
 
-        if (file.is_open()) {
-            file << global_market;
-            if (iteration != total_updates - 1) file << ' ';
-        }
+        if (iteration % 1000 == 0) printf("Completed %d/%d updates \n", iteration, total_updates);
     }
     timer::time_point stop = timer::now();
     file.close();
-
     file.open("logs/ising.log", std::ios_base::app);
     auto t = std::time(nullptr);
     auto tm = *std::localtime(&t);
@@ -143,6 +140,9 @@ int main(int argc, char** argv) {
     file.close();
     CHECK_CUDA(cudaDeviceSynchronize());
 
-    //write_lattice(d_black_tiles, d_white_tiles, ".data/", grid_width, grid_height, grid_depth, reduced_alpha, beta, reduced_j, global_market, seed, total_updates);
+    int global_market = update(d_black_tiles, d_white_tiles, d_black_plus_white, random_values,
+                               d_probabilities, rng, reduced_alpha, reduced_j, grid_height, grid_width, grid_depth);
+    printf("Final magnetisation: %d\n", global_market);
+    write_lattice(d_black_tiles, d_white_tiles, ".data/", grid_width, grid_height, grid_depth, reduced_alpha, beta, reduced_j, global_market, seed, total_updates);
     return 0;
 }

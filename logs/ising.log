@@ -418,3 +418,66 @@ total updates: 10000
 total computing time: 26.565108
 updates per nanosecond: 6.315508
 -----------------------------------
+14.06.2021 14:39:38
+256x256x256
+seed: 157652833
+total updates: 10000
+total computing time: 25.900080
+updates per nanosecond: 6.477670
+-----------------------------------
+14.06.2021 14:45:05
+256x256x256
+seed: 157652833
+total updates: 10000
+total computing time: 26.070942
+updates per nanosecond: 6.435217
+-----------------------------------
+14.06.2021 14:50:21
+256x256x256
+seed: 157652833
+total updates: 10000
+total computing time: 26.177090
+updates per nanosecond: 6.409122
+-----------------------------------
+14.06.2021 14:53:57
+256x256x256
+seed: 157652833
+total updates: 10000
+total computing time: 26.240551
+updates per nanosecond: 6.393622
+-----------------------------------
+14.06.2021 14:55:21
+256x256x256
+seed: 157652833
+total updates: 10000
+total computing time: 26.605427
+updates per nanosecond: 6.305938
+-----------------------------------
+14.06.2021 14:56:57
+256x256x256
+seed: 157652833
+total updates: 10000
+total computing time: 26.385137
+updates per nanosecond: 6.358586
+-----------------------------------
+14.06.2021 14:58:56
+256x256x256
+seed: 157652833
+total updates: 10000
+total computing time: 26.798252
+updates per nanosecond: 6.260564
+-----------------------------------
+14.06.2021 15:08:15
+256x256x256
+seed: 157652833
+total updates: 10000
+total computing time: 26.617371
+updates per nanosecond: 6.303108
+-----------------------------------
+14.06.2021 15:38:08
+128x128x128
+seed: 157652833
+total updates: 1000000
+total computing time: 465.927082
+updates per nanosecond: 4.501030
+-----------------------------------
