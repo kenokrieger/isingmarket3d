@@ -56,7 +56,7 @@ int main(int argc, char** argv) {
 
     std::ofstream file;
     signed char *d_black_tiles, *d_white_tiles, *d_black_plus_white;
-    float *random_values;
+    float *random_values, *d_probabilities;
     curandGenerator_t rng;
     // The global market represents the sum over the strategies of each
     // agent. Agents will choose a strategy contrary to the sign of the
@@ -104,6 +104,7 @@ int main(int argc, char** argv) {
     CHECK_CUDA(cudaMalloc(&d_black_tiles, grid_depth * grid_height * grid_width / 2 * sizeof(*d_black_tiles)));
     CHECK_CUDA(cudaMalloc(&d_black_plus_white, grid_depth * grid_height * grid_width / 2 * sizeof(*d_black_plus_white)));
     CHECK_CUDA(cudaMalloc(&random_values, grid_depth * grid_height * grid_width / 2 * sizeof(*random_values)));
+    CHECK_CUDA(cudaMalloc(&d_probabilities, (int)26 * sizeof(*random_values)));
 
     init_traders(d_black_tiles, d_white_tiles, rng, random_values, grid_width, grid_height, grid_depth);
     // Synchronize operations on the GPU with CPU
@@ -113,7 +114,8 @@ int main(int argc, char** argv) {
     file.open("magnetisation.dat");
     timer::time_point start = timer::now();
     for (int iteration = 0; iteration < total_updates; iteration++) {
-        int global_market = update(d_black_tiles, d_white_tiles, d_black_plus_white, random_values, rng, reduced_alpha, reduced_j, grid_height, grid_width, grid_depth);
+        int global_market = update(d_black_tiles, d_white_tiles, d_black_plus_white, random_values,
+                                   d_probabilities, rng, reduced_alpha, reduced_j, grid_height, grid_width, grid_depth);
 
         if (file.is_open()) {
             file << global_market;

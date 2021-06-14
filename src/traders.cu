@@ -87,12 +87,19 @@ void init_traders(signed char* d_black_tiles, signed char* d_white_tiles,
 }
 
 
+__global__ void compute_probabilities(float* probabilities, const int market_coupling, const float reduced_j) {
+    int thread_id = threadIdx.x;
+    // fill the array with values -6 - market_coupling, -5 - market_coupling, ..., 5 + market_coupling, 6 + market_coupling
+    double field = reduced_j * (thread_id - 6 - (thread_id % 12)) + market_coupling * ((thread_id < 14) ? -1 : 1);
+    probabilities[thread_id] = 1 / (1 + exp(field));
+}
+
+
 template <bool is_black>
 __global__ void update_strategies(signed char* traders,
                                   const signed char* __restrict__ checkerboard_agents,
                                   const float* __restrict__ random_values,
-                                  const double market_coupling,
-                                  const float reduced_j,
+                                  const float* probabilities,
                                   const long long grid_height,
                                   const long long grid_width,
                                   const long long grid_depth)
@@ -125,19 +132,16 @@ __global__ void update_strategies(signed char* traders,
         horizontal_neighbor_col = (row % 2) ? right_neighbor_col : left_neighbor_col;
     }
     // Compute sum of nearest neighbor spins
-    double neighbor_coupling = reduced_j * (
+    signed char neighbor_sum =
             checkerboard_agents[lattice_id * grid_height * grid_width + upper_neighbor_row * grid_width + col]
           + checkerboard_agents[lattice_id * grid_height * grid_width + lower_neighbor_row * grid_width + col]
           + checkerboard_agents[index]
           + checkerboard_agents[lattice_id * grid_height * grid_width + row * grid_width + horizontal_neighbor_col]
           + checkerboard_agents[front_neighbor_lattice * grid_height * grid_width + row * grid_width + col]
-          + checkerboard_agents[back_neighbor_lattice * grid_height * grid_width + row * grid_width + col]
-          );
+          + checkerboard_agents[back_neighbor_lattice * grid_height * grid_width + row * grid_width + col];
 
-    signed char old_strategy = traders[index];
-    double field = neighbor_coupling + market_coupling * old_strategy;
-    // Determine whether to flip spin
-    float probability = 1 / (1 + exp(field));
+    // use one of the 26 precomputed values for p = 1 / (1 + exp(-2 * beta ...))
+    float probability = probabilities[13 * ((traders[index] < 0) ? 0 : 1) + neighbor_sum + 6];
     signed char new_strategy = random_values[index] < probability ? 1 : -1;
     traders[index] = new_strategy;
 }
@@ -147,6 +151,7 @@ int update(signed char *d_black_tiles,
            signed char *d_white_tiles,
            signed char *d_black_plus_white,
            float* random_values,
+           float* d_probabilities,
            curandGenerator_t rng,
            const float reduced_alpha,
            const float reduced_j,
@@ -161,11 +166,13 @@ int update(signed char *d_black_tiles,
     int reduced_global_market = abs(global_market / (grid_width * grid_height * grid_depth));
     int market_coupling = -reduced_alpha * reduced_global_market;
 
+    // precompute possible exponentials
+    compute_probabilities<<<1, 26>>>(d_probabilities, market_coupling, reduced_j);
     CHECK_CURAND(curandGenerateUniform(rng, random_values, grid_depth * grid_height * grid_width / 2));
-    update_strategies<true><<<blocks, threads_per_block>>>(d_black_tiles, d_white_tiles, random_values, market_coupling, reduced_j, grid_height, grid_width / 2, grid_depth);
+    update_strategies<true><<<blocks, threads_per_block>>>(d_black_tiles, d_white_tiles, random_values, d_probabilities, grid_height, grid_width / 2, grid_depth);
 
     CHECK_CURAND(curandGenerateUniform(rng, random_values, grid_depth * grid_height * grid_width / 2));
-    update_strategies<false><<<blocks, threads_per_block>>>(d_white_tiles, d_black_tiles, random_values, market_coupling, reduced_j, grid_height, grid_width / 2, grid_depth);
+    update_strategies<false><<<blocks, threads_per_block>>>(d_white_tiles, d_black_tiles, random_values, d_probabilities, grid_height, grid_width / 2, grid_depth);
 
     return global_market;
 }

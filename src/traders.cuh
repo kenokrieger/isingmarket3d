@@ -34,6 +34,9 @@ __global__ void fill_array(signed char* traders,
 __global__ void add_array(const signed char* black_tiles, const signed char* white_tiles, signed char* result, const long long size);
 
 
+__global__ void compute_probabilities(float* probabilities, const int market_coupling, const float reduced_j);
+
+
 void init_traders(signed char* d_black_tiles, signed char* d_white_tiles,
                   curandGenerator_t rng, float* random_values,
                   long long grid_width, long long grid_height, long long grid_depth,
@@ -44,8 +47,7 @@ template <bool is_black>
 __global__ void update_strategies(signed char* traders,
                                   const signed char* __restrict__ checkerboard_agents,
                                   const float* __restrict__ random_values,
-                                  const double market_coupling,
-                                  const float reduced_j,
+                                  const float* probabilities,
                                   const long long grid_height,
                                   const long long grid_width,
                                   const long long grid_depth);
@@ -79,6 +81,7 @@ int update(signed char *d_black_tiles,
             signed char *d_white_tiles,
             signed char *d_black_plus_white,
             float* random_values,
+            float* d_probabilities,
             curandGenerator_t rng,
             const float reduced_alpha,
             const float reduced_j,
