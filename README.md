@@ -65,10 +65,19 @@ int front_neighbor_lattice = (lattice_id - 1 >= 0) ? lattice_id - 1: grid_depth 
 int back_neighbor_lattice = (lattice_id + 1 <= grid_depth - 1) ? lattice_id + 1: 0;
 ```
 where neighbors in different rows will always be in the same column as the updated
-spin and neighbors in different columns will be in the same row. Only of of the
+spin and neighbors in different columns will be in the same row. Only one of
 the ```right_neighbor_col``` or ```left_neighbor_col```is going to be used depending
-on row and lattice id parity. One neighbor is always going to have the same index
-as the updated spin. Which results in 6 total neighbors.
+on row and lattice id parity.
+```c++
+if (lattice_id % 2) is_black = !is_black;
+if (is_black) {
+    horizontal_neighbor_col = (row % 2) ? left_neighbor_col : right_neighbor_col;
+} else {
+    horizontal_neighbor_col = (row % 2) ? right_neighbor_col : left_neighbor_col;
+}
+```
+One neighbor is always going to have the same index as the updated spin
+which results in 6 total neighbors.
 
 ## Compiling
 
