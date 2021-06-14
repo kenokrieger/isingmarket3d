@@ -31,6 +31,9 @@ __global__ void fill_array(signed char* traders,
     */
 
 
+__global__ void add_array(const signed char* black_tiles, const signed char* white_tiles, signed char* result, const long long size);
+
+
 void init_traders(signed char* d_black_tiles, signed char* d_white_tiles,
                   curandGenerator_t rng, float* random_values,
                   long long grid_width, long long grid_height, long long grid_depth,
@@ -72,11 +75,12 @@ __global__ void update_strategies(signed char* traders,
     */
 
 
-void update(signed char *d_black_tiles,
+int update(signed char *d_black_tiles,
             signed char *d_white_tiles,
+            signed char *d_black_plus_white,
             float* random_values,
             curandGenerator_t rng,
-            const double market_coupling,
+            const float reduced_alpha,
             const float reduced_j,
             const long long grid_height, const long long grid_width, const long long grid_depth,
             int threads = 16);

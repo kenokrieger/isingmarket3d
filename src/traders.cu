@@ -29,6 +29,51 @@ __global__ void fill_array(signed char* traders,
 }
 
 
+__global__ void add_array(const signed char* black_tiles,
+                          const signed char* white_tiles,
+                          signed char* result,
+                          const long long size)
+{
+    int index = static_cast<long long>(blockDim.x) * blockIdx.x + threadIdx.x;
+    if (index > size) return;
+    result[index] = black_tiles[index] + white_tiles[index];
+}
+
+
+int sum_array(const signed char* d_arr, int size)
+{
+    // Reduce
+    int* d_sum;
+    int nchunks = (size + CUB_CHUNK_SIZE - 1)/ CUB_CHUNK_SIZE;
+    CHECK_CUDA(cudaMalloc(&d_sum, nchunks * sizeof(*d_sum)));
+    size_t temp_storage_bytes = 0;
+    // When d_temp_storage is NULL, no work is done and the required allocation
+    // size is returned in temp_storage_bytes.
+    void* d_temp_storage = NULL;
+    // determine temporary device storage requirements
+    CHECK_CUDA(cub::DeviceReduce::Sum(d_temp_storage, temp_storage_bytes, d_arr, d_sum, CUB_CHUNK_SIZE));
+    CHECK_CUDA(cudaMalloc(&d_temp_storage, temp_storage_bytes));
+
+    for (int i = 0; i < nchunks; i++) {
+        CHECK_CUDA(cub::DeviceReduce::Sum(d_temp_storage, temp_storage_bytes, &d_arr[i * CUB_CHUNK_SIZE], d_sum + i,
+                             std::min((long long) CUB_CHUNK_SIZE, size - i * CUB_CHUNK_SIZE)));
+    }
+
+    int* h_sum;
+    h_sum = (int*)malloc(nchunks * sizeof(*h_sum));
+    CHECK_CUDA(cudaMemcpy(h_sum, d_sum, nchunks * sizeof(*d_sum), cudaMemcpyDeviceToHost));
+    int total_sum = 0;
+
+    for (int i = 0; i < nchunks; i++) {
+      total_sum += h_sum[i];
+    }
+    CHECK_CUDA(cudaFree(d_sum));
+    CHECK_CUDA(cudaFree(d_temp_storage));
+    free(h_sum);
+    return total_sum;
+}
+
+
 void init_traders(signed char* d_black_tiles, signed char* d_white_tiles,
                   curandGenerator_t rng, float* random_values,
                   long long grid_width, long long grid_height, long long grid_depth,
@@ -98,23 +143,31 @@ __global__ void update_strategies(signed char* traders,
 }
 
 
-void update(signed char *d_black_tiles,
-            signed char *d_white_tiles,
-            float* random_values,
-            curandGenerator_t rng,
-            const double market_coupling,
-            const float reduced_j,
-            const long long grid_height, const long long grid_width, const long long grid_depth,
-            int threads = 16)
+int update(signed char *d_black_tiles,
+           signed char *d_white_tiles,
+           signed char *d_black_plus_white,
+           float* random_values,
+           curandGenerator_t rng,
+           const float reduced_alpha,
+           const float reduced_j,
+           const long long grid_height, const long long grid_width, const long long grid_depth,
+           int threads = 16)
 {
     dim3 blocks(grid_width / threads, grid_width / threads, grid_depth);
     dim3 threads_per_block(threads / 2, threads);
+
+    add_array<<<(grid_depth * grid_width / 2 * grid_height + 127) / 128, 128>>>(d_black_tiles, d_white_tiles, d_black_plus_white, grid_width / 2 * grid_height * grid_depth);
+    int global_market = sum_array(d_black_plus_white, grid_depth * grid_height * grid_width / 2);
+    int reduced_global_market = abs(global_market / (grid_width * grid_height * grid_depth));
+    int market_coupling = -reduced_alpha * reduced_global_market;
 
     CHECK_CURAND(curandGenerateUniform(rng, random_values, grid_depth * grid_height * grid_width / 2));
     update_strategies<true><<<blocks, threads_per_block>>>(d_black_tiles, d_white_tiles, random_values, market_coupling, reduced_j, grid_height, grid_width / 2, grid_depth);
 
     CHECK_CURAND(curandGenerateUniform(rng, random_values, grid_depth * grid_height * grid_width / 2));
     update_strategies<false><<<blocks, threads_per_block>>>(d_white_tiles, d_black_tiles, random_values, market_coupling, reduced_j, grid_height, grid_width / 2, grid_depth);
+
+    return global_market;
 }
 
 
@@ -236,38 +289,4 @@ void read_from_file(std::string fileprefix, signed char* d_black_tiles, signed c
 
     free(h_black_tiles);
     free(h_white_tiles);
-}
-
-
-int sum_array(const signed char* d_arr, int size)
-{
-    // Reduce
-    int* d_sum;
-    int nchunks = (size + CUB_CHUNK_SIZE - 1)/ CUB_CHUNK_SIZE;
-    CHECK_CUDA(cudaMalloc(&d_sum, nchunks * sizeof(*d_sum)));
-    size_t temp_storage_bytes = 0;
-    // When d_temp_storage is NULL, no work is done and the required allocation
-    // size is returned in temp_storage_bytes.
-    void* d_temp_storage = NULL;
-    // determine temporary device storage requirements
-    CHECK_CUDA(cub::DeviceReduce::Sum(d_temp_storage, temp_storage_bytes, d_arr, d_sum, CUB_CHUNK_SIZE));
-    CHECK_CUDA(cudaMalloc(&d_temp_storage, temp_storage_bytes));
-
-    for (int i = 0; i < nchunks; i++) {
-        CHECK_CUDA(cub::DeviceReduce::Sum(d_temp_storage, temp_storage_bytes, &d_arr[i * CUB_CHUNK_SIZE], d_sum + i,
-                             std::min((long long) CUB_CHUNK_SIZE, size - i * CUB_CHUNK_SIZE)));
-    }
-
-    int* h_sum;
-    h_sum = (int*)malloc(nchunks * sizeof(*h_sum));
-    CHECK_CUDA(cudaMemcpy(h_sum, d_sum, nchunks * sizeof(*d_sum), cudaMemcpyDeviceToHost));
-    int total_sum = 0;
-
-    for (int i = 0; i < nchunks; i++) {
-      total_sum += h_sum[i];
-    }
-    CHECK_CUDA(cudaFree(d_sum));
-    CHECK_CUDA(cudaFree(d_temp_storage));
-    free(h_sum);
-    return total_sum;
 }

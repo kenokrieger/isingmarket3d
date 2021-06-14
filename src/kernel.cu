@@ -12,10 +12,6 @@
 
 using namespace std;
 
-// Default parameters
-int device_id = 0;
-int threads = 16;
-
 //seed = std::chrono::steady_clock::now().time_since_epoch().count();
 
 
@@ -59,15 +55,12 @@ map<string, string> read_config_file(string config_filename, string delimiter = 
 int main(int argc, char** argv) {
 
     std::ofstream file;
-    signed char *d_black_tiles, *d_white_tiles;
+    signed char *d_black_tiles, *d_white_tiles, *d_black_plus_white;
     float *random_values;
     curandGenerator_t rng;
     // The global market represents the sum over the strategies of each
     // agent. Agents will choose a strategy contrary to the sign of the
     // global market.
-    int global_market = 0;
-    int reduced_global_market;
-    double market_coupling = 0.0;
     int device_id = 0;
     string config_filename = (argc == 1) ? "ising3d.conf" : argv[1];
     map<string, string> config = read_config_file(config_filename);
@@ -109,6 +102,7 @@ int main(int argc, char** argv) {
     // allocate memory for the arrays
     CHECK_CUDA(cudaMalloc(&d_white_tiles, grid_depth * grid_height * grid_width / 2 * sizeof(*d_white_tiles)));
     CHECK_CUDA(cudaMalloc(&d_black_tiles, grid_depth * grid_height * grid_width / 2 * sizeof(*d_black_tiles)));
+    CHECK_CUDA(cudaMalloc(&d_black_plus_white, grid_depth * grid_height * grid_width / 2 * sizeof(*d_black_plus_white)));
     CHECK_CUDA(cudaMalloc(&random_values, grid_depth * grid_height * grid_width / 2 * sizeof(*random_values)));
 
     init_traders(d_black_tiles, d_white_tiles, rng, random_values, grid_width, grid_height, grid_depth);
@@ -119,11 +113,7 @@ int main(int argc, char** argv) {
     file.open("magnetisation.dat");
     timer::time_point start = timer::now();
     for (int iteration = 0; iteration < total_updates; iteration++) {
-        update(d_black_tiles, d_white_tiles, random_values, rng, market_coupling, reduced_j, grid_height, grid_width, grid_depth);
-        global_market = sum_array(d_black_tiles, grid_depth * grid_height * grid_width / 2);
-        global_market += sum_array(d_white_tiles, grid_depth * grid_height * grid_width / 2);
-        reduced_global_market = abs(global_market / (grid_width * grid_height * grid_depth));
-        market_coupling = -reduced_alpha * reduced_global_market;
+        int global_market = update(d_black_tiles, d_white_tiles, d_black_plus_white, random_values, rng, reduced_alpha, reduced_j, grid_height, grid_width, grid_depth);
 
         if (file.is_open()) {
             file << global_market;
