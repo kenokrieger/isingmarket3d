@@ -56,6 +56,7 @@ template <bool is_black>
 void update_spins(type tiles, const type opposite_tiles);
 ```
 The indices of the nearest neighbors are as follows
+
 ```c++
 int lower_neighbor_row = (row + 1 < grid_height) ? row + 1 : 0;
 int upper_neighbor_row = (row - 1 >= 0) ? row - 1: grid_height - 1;
@@ -64,10 +65,12 @@ int left_neighbor_col = (col - 1 >= 0) ? col - 1: grid_width - 1;
 int front_neighbor_lattice = (lattice_id - 1 >= 0) ? lattice_id - 1: grid_depth - 1;
 int back_neighbor_lattice = (lattice_id + 1 <= grid_depth - 1) ? lattice_id + 1: 0;
 ```
+
 where neighbors in different rows will always be in the same column as the updated
 spin and neighbors in different columns will be in the same row. Only one of
 the ```right_neighbor_col``` or ```left_neighbor_col```is going to be used depending
 on row and lattice id parity.
+
 ```c++
 if (lattice_id % 2) is_black = !is_black;
 if (is_black) {
@@ -76,8 +79,35 @@ if (is_black) {
     horizontal_neighbor_col = (row % 2) ? right_neighbor_col : left_neighbor_col;
 }
 ```
+
 One neighbor is always going to have the same index as the updated spin
 which results in 6 total neighbors.
+
+### Precomputation
+
+Looking at the equation from the outline one can see, that for each iteration
+there exist 26 possible values for the probability *p*. These values can be
+precomputed and assigned an index ranging from 0 to 25.
+
+```c++
+void compute_probabilities(float* probabilities, const int market_coupling, const float reduced_j)
+{
+    for (int idx = 0; idx < 26; idx++) {
+    double field = reduced_j * (idx - 6 - (idx % 12)) + market_coupling * ((idx < 14) ? -1 : 1);
+    probabilities[idx] = 1 / (1 + exp(field));
+    }
+}
+```
+
+Instead of computing the probability for each spin, the kernel now only has to
+find the respective value for each individual spin in the array which only depends
+on the sum over the 6 neighbors and its own orientation.
+
+```c++
+float probability = probabilities[13 * ((traders[index] < 0) ? 0 : 1) + neighbor_sum + 6];
+signed char new_strategy = random_values[index] < probability ? 1 : -1;
+traders[index] = new_strategy;
+```
 
 ## Compiling
 
