@@ -69,7 +69,7 @@ int main(int argc, char** argv) {
     const long long grid_height = std::stoll(config["grid_height"]);
     const long long grid_width = std::stoll(config["grid_width"]);
     const long long grid_depth = std::stoll(config["grid_depth"]);
-    int total_updates = std::stoi(config["total_updates"]);
+    unsigned int total_updates = std::stoul(config["total_updates"]);
     unsigned int seed = std::stoul(config["seed"]);
     float alpha = std::stof(config["alpha"]);
     float j = std::stof(config["j"]);
@@ -116,9 +116,8 @@ int main(int argc, char** argv) {
     for (int iteration = 0; iteration < total_updates; iteration++) {
         int global_market = update(d_black_tiles, d_white_tiles, d_black_plus_white, random_values,
                                    d_probabilities, rng, reduced_alpha, reduced_j, grid_height, grid_width, grid_depth);
-        file << global_market << ' ' << std::flush;
-
-        if (iteration % 1000 == 0) printf("Completed %d/%d updates \n", iteration, total_updates);
+        if (iteration % 10 == 0)
+            file << global_market << ' ' << std::flush;
     }
     timer::time_point stop = timer::now();
     file.close();

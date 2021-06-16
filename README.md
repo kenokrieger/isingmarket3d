@@ -72,8 +72,7 @@ the ```right_neighbor_col``` or ```left_neighbor_col```is going to be used depen
 on row and lattice id parity.
 
 ```c++
-if (lattice_id % 2) is_black = !is_black;
-if (is_black) {
+if ((lattice_id % 2) ? !is_black : is_black) {
     horizontal_neighbor_col = (row % 2) ? left_neighbor_col : right_neighbor_col;
 } else {
     horizontal_neighbor_col = (row % 2) ? right_neighbor_col : left_neighbor_col;
@@ -86,15 +85,15 @@ which results in 6 total neighbors.
 ### Precomputation
 
 Looking at the equation from the outline one can see, that for each iteration
-there exist 26 possible values for the probability *p*. These values can be
-precomputed and assigned an index ranging from 0 to 25.
+there exist 14 possible values for the probability *p*. These values can be
+precomputed and assigned an index ranging from 0 to 13.
 
 ```c++
-void compute_probabilities(float* probabilities, const int market_coupling, const float reduced_j)
+void compute_probabilities(float* probabilities, const float market_coupling, const float reduced_j)
 {
-    for (int idx = 0; idx < 26; idx++) {
-    double field = reduced_j * (idx - 6 - (idx % 12)) + market_coupling * ((idx < 14) ? -1 : 1);
-    probabilities[idx] = 1 / (1 + exp(field));
+    for (int idx = 0; idx < 14; idx++) {
+        double field = reduced_j * (2 * idx - 6 - 14 * (idx / 7)) + market_coupling * ((idx < 7) ? -1 : 1);
+        probabilities[idx] = 1 / (1 + exp(field));
     }
 }
 ```
@@ -104,9 +103,8 @@ find the respective value for each individual spin in the array which only depen
 on the sum over the 6 neighbors and its own orientation.
 
 ```c++
-float probability = probabilities[13 * ((traders[index] < 0) ? 0 : 1) + neighbor_sum + 6];
-signed char new_strategy = random_values[index] < probability ? 1 : -1;
-traders[index] = new_strategy;
+float probability = probabilities[7 * ((traders[index] < 0) ? 0 : 1) + (neighbor_sum + 6) / 2];
+traders[index] = random_values[index] < probability ? 1 : -1;
 ```
 
 ## Compiling

@@ -32,15 +32,46 @@ __global__ void fill_array(signed char* traders,
 
 
 __global__ void add_array(const signed char* black_tiles, const signed char* white_tiles, signed char* result, const long long size);
+    /*
+    Add two arrays in parallel.
+
+    Args:
+        black_tiles: A pointer to one of the summands.
+        white_tiles: A pointer to another summand.
+        result: A pointer to the resulting array.
+        size: The length of the array.
+    */
 
 
-__global__ void compute_probabilities(float* probabilities, const int market_coupling, const float reduced_j);
+__global__ void compute_probabilities(float* probabilities, const float market_coupling, const float reduced_j);
+    /*
+    Precompute possible probabilities for a spin flip and store them in the array
+    "probabilities".
+
+    Args:
+        probabilities: A pointer to the array to fill.
+        market_coupling: The relative magnetisation multiplied by -2 beta.
+        reduced_j: The spin coupling multiplied by -2 beta.
+    */
 
 
 void init_traders(signed char* d_black_tiles, signed char* d_white_tiles,
                   curandGenerator_t rng, float* random_values,
                   long long grid_width, long long grid_height, long long grid_depth,
                   int threads = 64);
+    /*
+    Initialise two arrays of traders with randomly distributed values of +1 or -1.
+
+    Args:
+        d_black_tiles: One of the arrays to fill.
+        d_white_tiles: The other array to fill.
+        rng: The random number generator used for the distribution of values.
+        random_values: Array containg/to be filled with random values.
+        grid_height: The height of the grid.
+        grid_width: The width of the grid.
+        grid_depth: The depth of the grid.
+        threads: The number of threads to invoke the kernel with. Defaults to 64.
+    */
 
 
 template <bool is_black>
@@ -78,15 +109,15 @@ __global__ void update_strategies(signed char* traders,
 
 
 int update(signed char *d_black_tiles,
-            signed char *d_white_tiles,
-            signed char *d_black_plus_white,
-            float* random_values,
-            float* d_probabilities,
-            curandGenerator_t rng,
-            const float reduced_alpha,
-            const float reduced_j,
-            const long long grid_height, const long long grid_width, const long long grid_depth,
-            int threads = 16);
+           signed char *d_white_tiles,
+           signed char *d_black_plus_white,
+           float* random_values,
+           float* d_probabilities,
+           curandGenerator_t rng,
+           const float reduced_alpha,
+           const float reduced_j,
+           const long long grid_height, const long long grid_width, const long long grid_depth,
+           int threads = 16);
 
     /*
     Update all of the traders by updating the white and black tiles in succesion.
@@ -104,6 +135,9 @@ int update(signed char *d_black_tiles,
         grid_height: The height of the grid.
         grid_width: The width of the grid.
         grid_depth: The depth of the grid.
+
+    Returns:
+        The sum over all spins.
     */
 
 

@@ -481,3 +481,80 @@ total updates: 1000000
 total computing time: 465.927082
 updates per nanosecond: 4.501030
 -----------------------------------
+15.06.2021 12:56:14
+512x512x512
+seed: 157652833
+total updates: 10000
+total computing time: 206.876345
+updates per nanosecond: 6.487824
+-----------------------------------
+15.06.2021 15:57:01
+16x16x16
+seed: 464424
+total updates: 10000000
+total computing time: 312.935172
+updates per nanosecond: 0.130890
+-----------------------------------
+15.06.2021 16:29:41
+16x16x16
+seed: 132472
+total updates: 10000000
+total computing time: 297.017020
+updates per nanosecond: 0.137905
+-----------------------------------
+15.06.2021 16:49:02
+64x64x64
+seed: 7456544
+total updates: 1000000
+total computing time: 124.599312
+updates per nanosecond: 2.103896
+-----------------------------------
+16.06.2021 13:44:37
+128x128x128
+seed: 132564789
+total updates: 10
+total computing time: 0.004975
+updates per nanosecond: 4.215381
+-----------------------------------
+16.06.2021 13:51:14
+128x128x128
+seed: 132564789
+total updates: 1000
+total computing time: 0.510839
+updates per nanosecond: 4.105309
+-----------------------------------
+16.06.2021 14:01:49
+128x128x128
+seed: 1234
+total updates: 50000
+total computing time: 24.193421
+updates per nanosecond: 4.334137
+-----------------------------------
+16.06.2021 14:02:50
+128x128x128
+seed: 1234
+total updates: 50
+total computing time: 0.025802
+updates per nanosecond: 4.063933
+-----------------------------------
+16.06.2021 14:04:41
+128x128x128
+seed: 1234
+total updates: 50000
+total computing time: 24.209676
+updates per nanosecond: 4.331227
+-----------------------------------
+16.06.2021 14:06:33
+128x128x128
+seed: 1234
+total updates: 10
+total computing time: 0.005028
+updates per nanosecond: 4.170947
+-----------------------------------
+16.06.2021 14:08:10
+128x128x128
+seed: 1234
+total updates: 1000
+total computing time: 0.516772
+updates per nanosecond: 4.058177
+-----------------------------------

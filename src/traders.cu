@@ -87,10 +87,10 @@ void init_traders(signed char* d_black_tiles, signed char* d_white_tiles,
 }
 
 
-__global__ void compute_probabilities(float* probabilities, const int market_coupling, const float reduced_j) {
+__global__ void compute_probabilities(float* probabilities, const float market_coupling, const float reduced_j) {
     int thread_id = threadIdx.x;
     // fill the array with values -6 - market_coupling, -5 - market_coupling, ..., 5 + market_coupling, 6 + market_coupling
-    double field = reduced_j * (thread_id - 6 - (thread_id % 12)) + market_coupling * ((thread_id < 14) ? -1 : 1);
+    double field = reduced_j * (2 * thread_id - 6 - 14 * (thread_id / 7)) + market_coupling * ((thread_id < 7) ? -1 : 1);
     probabilities[thread_id] = 1 / (1 + exp(field));
 }
 
@@ -127,8 +127,7 @@ __global__ void update_strategies(signed char* traders,
     // agent on the grid
     int horizontal_neighbor_col;
     // flip is black if lattice id is uneven
-    if (lattice_id % 2) is_black = !is_black;
-    if (is_black) {
+    if ((lattice_id % 2) ? !is_black : is_black) {
         horizontal_neighbor_col = (row % 2) ? left_neighbor_col : right_neighbor_col;
     } else {
         horizontal_neighbor_col = (row % 2) ? right_neighbor_col : left_neighbor_col;
@@ -143,9 +142,8 @@ __global__ void update_strategies(signed char* traders,
           + checkerboard_agents[back_neighbor_lattice * grid_height * grid_width + row * grid_width + col];
 
     // use one of the 26 precomputed values for p = 1 / (1 + exp(-2 * beta ...))
-    float probability = probabilities[13 * ((traders[index] < 0) ? 0 : 1) + neighbor_sum + 6];
-    signed char new_strategy = random_values[index] < probability ? 1 : -1;
-    traders[index] = new_strategy;
+    float probability = probabilities[7 * ((traders[index] < 0) ? 0 : 1) + (neighbor_sum + 6) / 2];
+    traders[index] = random_values[index] < probability ? 1 : -1;
 }
 
 
@@ -164,12 +162,14 @@ int update(signed char *d_black_tiles,
     dim3 threads_per_block(threads / 2, threads);
 
     add_array<<<(grid_depth * grid_width / 2 * grid_height + 127) / 128, 128>>>(d_black_tiles, d_white_tiles, d_black_plus_white, grid_width / 2 * grid_height * grid_depth);
-    int global_market = sum_array(d_black_plus_white, grid_depth * grid_height * grid_width / 2);
-    int reduced_global_market = abs(global_market / (grid_width * grid_height * grid_depth));
-    int market_coupling = -reduced_alpha * reduced_global_market;
-
+    double global_market = sum_array(d_black_plus_white, grid_depth * grid_height * grid_width / 2);
+    float reduced_global_market = abs(global_market / (grid_width * grid_height * grid_depth));
+    float market_coupling = -reduced_alpha * reduced_global_market;
+    std::cout << reduced_global_market << std::endl;
+    std::cout << market_coupling << std::endl;
     // precompute possible exponentials
-    compute_probabilities<<<1, 26>>>(d_probabilities, market_coupling, reduced_j);
+    compute_probabilities<<<1, 14>>>(d_probabilities, market_coupling, reduced_j);
+    CHECK_CUDA(cudaDeviceSynchronize());
     CHECK_CURAND(curandGenerateUniform(rng, random_values, grid_depth * grid_height * grid_width / 2));
     update_strategies<true><<<blocks, threads_per_block>>>(d_black_tiles, d_white_tiles, random_values, d_probabilities, grid_height, grid_width / 2, grid_depth);
 
@@ -268,7 +268,6 @@ void read_from_file(std::string fileprefix, signed char* d_black_tiles, signed c
         while (getline(file, line)) {
 
             if (line[0] == '#') continue;
-            // add seperator to the end of the line
             col = 0;
             for (int idx = 0; idx < line.length(); idx++) {
                 // checks for seperator character

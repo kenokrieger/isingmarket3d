@@ -1,7 +1,9 @@
 #! /usr/bin/bash
 for i in {0..20}
 do
-cd ~/repos/isingmarket3d/testdata/test$i
+cd testdata/test$i
 echo "Generating data for test$i"
+rm -r reference_data/
 ../../build/ising3d
+cd ../..
 done
