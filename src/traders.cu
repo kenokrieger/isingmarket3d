@@ -165,8 +165,6 @@ int update(signed char *d_black_tiles,
     double global_market = sum_array(d_black_plus_white, grid_depth * grid_height * grid_width / 2);
     float reduced_global_market = abs(global_market / (grid_width * grid_height * grid_depth));
     float market_coupling = -reduced_alpha * reduced_global_market;
-    std::cout << reduced_global_market << std::endl;
-    std::cout << market_coupling << std::endl;
     // precompute possible exponentials
     compute_probabilities<<<1, 14>>>(d_probabilities, market_coupling, reduced_j);
     CHECK_CUDA(cudaDeviceSynchronize());

@@ -558,3 +558,17 @@ total updates: 1000
 total computing time: 0.516772
 updates per nanosecond: 4.058177
 -----------------------------------
+25.06.2021 08:34:25
+128x128x128
+seed: 1234
+total updates: 100000
+total computing time: 47.160587
+updates per nanosecond: 4.446832
+-----------------------------------
+26.06.2021 14:57:33
+128x128x128
+seed: 2458242462
+total updates: 100000
+total computing time: 47.331471
+updates per nanosecond: 4.430777
+-----------------------------------
