@@ -187,7 +187,7 @@ void read_from_file(std::string fileprefix,
         grid_depth: The depth of the grid.
     */
 
-
+// Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
 int sum_array(const signed char* d_array, int size);
     /*
     Compute the total sum over a given array.

@@ -1,4 +1,4 @@
-
+// Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
 int gpuDeviceInit(int device_id) {
     int device_count;
     CHECK_CUDA(cudaGetDeviceCount(&device_count));

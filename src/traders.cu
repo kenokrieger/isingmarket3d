@@ -39,7 +39,7 @@ __global__ void add_array(const signed char* black_tiles,
     result[index] = black_tiles[index] + white_tiles[index];
 }
 
-
+// Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
 int sum_array(const signed char* d_arr, int size)
 {
     // Reduce
