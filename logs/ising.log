@@ -571,4 +571,18 @@ seed: 2458242462
 total updates: 100000
 total computing time: 47.331471
 updates per nanosecond: 4.430777
+-----------------------------------with arch=sm_61
+29.06.2021 09:25:38
+128x128x128
+seed: 2458242462
+total updates: 100000
+total computing time: 45.224789
+updates per nanosecond: 4.637174
+-----------------------------------without sum
+29.06.2021 10:02:09
+128x128x128
+seed: 2458242462
+total updates: 100000
+total computing time: 43.152873
+updates per nanosecond: 4.859820
 -----------------------------------

@@ -12,8 +12,6 @@
 
 using namespace std;
 
-//seed = std::chrono::steady_clock::now().time_since_epoch().count();
-
 
 map<string, string> read_config_file(string config_filename, string delimiter = "=")
 {
@@ -142,6 +140,5 @@ int main(int argc, char** argv) {
     int global_market = update(d_black_tiles, d_white_tiles, d_black_plus_white, random_values,
                                d_probabilities, rng, reduced_alpha, reduced_j, grid_height, grid_width, grid_depth);
     printf("Final magnetisation: %d\n", global_market);
-    write_lattice(d_black_tiles, d_white_tiles, ".data/", grid_width, grid_height, grid_depth, reduced_alpha, beta, reduced_j, global_market, seed, total_updates);
     return 0;
 }
