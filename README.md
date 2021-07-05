@@ -1,4 +1,4 @@
-# 3D Ising Market Model
+# <img src="https://github.com/kenokrieger/isingmarket3d/blob/main/logo.png", height="60">
 
 <img src="https://img.shields.io/github/issues/kenokrieger/isingmarket3d"> <img src="https://img.shields.io/github/commit-activity/m/kenokrieger/isingmarket3d">
 <img src="https://github.com/kenokrieger/isingmarket3d/blob/main/images/license.svg" alt="MIT License">
