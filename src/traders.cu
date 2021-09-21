@@ -15,16 +15,14 @@ __global__ void fill_array(signed char* traders,
                            const float* __restrict__ random_values,
                            const long long grid_height,
                            const long long grid_width,
-                           const long long grid_depth,
                            float weight = 0.5)
 {
     const int row = blockIdx.y * blockDim.y + threadIdx.y;
     const int col = blockDim.x * blockIdx.x + threadIdx.x;
-    const int lattice_id = blockIdx.z * blockDim.z + threadIdx.z;
     // check for out of bound access
-    if ((row >= grid_height) || (col >= grid_width) || (lattice_id >= grid_depth)) return;
+    if ((row >= grid_height) || (col >= grid_width)) return;
     // use random number between 0.0 and 1.0 generated beforehand
-    long long index = lattice_id * grid_width * grid_height + row * grid_width + col;
+    long long index = row * grid_width + col;
     traders[index] = (random_values[index] < weight) ? -1 : 1;
 }
 
@@ -80,22 +78,22 @@ long long sum_array(const signed char* d_arr, long long size)
 
 void init_traders(signed char* d_black_tiles, signed char* d_white_tiles,
                   curandGenerator_t rng, float* random_values,
-                  long long grid_width, long long grid_height, long long grid_depth,
+                  long long grid_width, long long grid_height,
                   int threads = 8)
 {
-    dim3 blocks(grid_width / (2 * threads), grid_height / threads, grid_depth / threads);
-    dim3 threads_per_block(threads, threads, threads);
-    CHECK_CURAND(curandGenerateUniform(rng, random_values, grid_depth * grid_height * grid_width / 2));
-    fill_array<<<blocks, threads_per_block>>>(d_black_tiles, random_values, grid_height, grid_width / 2, grid_depth);
-    CHECK_CURAND(curandGenerateUniform(rng, random_values, grid_depth * grid_height * grid_width / 2));
-    fill_array<<<blocks, threads_per_block>>>(d_white_tiles, random_values, grid_height, grid_width / 2, grid_depth);
+    dim3 blocks(grid_width / (2 * threads), grid_height / threads);
+    dim3 threads_per_block(threads, threads);
+    CHECK_CURAND(curandGenerateUniform(rng, random_values, grid_height * grid_width / 2));
+    fill_array<<<blocks, threads_per_block>>>(d_black_tiles, random_values, grid_height, grid_width / 2);
+    CHECK_CURAND(curandGenerateUniform(rng, random_values, grid_height * grid_width / 2));
+    fill_array<<<blocks, threads_per_block>>>(d_white_tiles, random_values, grid_height, grid_width / 2);
 }
 
 
 __global__ void compute_probabilities(float* probabilities, const float market_coupling, const float reduced_j) {
     int thread_id = threadIdx.x;
     // fill the array with values -6 - market_coupling, -5 - market_coupling, ..., 5 + market_coupling, 6 + market_coupling
-    double field = reduced_j * (2 * thread_id - 6 - 14 * (thread_id / 7)) + market_coupling * ((thread_id < 7) ? -1 : 1);
+    double field = reduced_j * (2 * thread_id - 4 - 8 * (thread_id / 5)) + market_coupling * ((thread_id < 5) ? -1 : 1);
     probabilities[thread_id] = 1 / (1 + exp(field));
 }
 
@@ -106,24 +104,20 @@ __global__ void update_strategies(signed char* traders,
                                   const float* __restrict__ random_values,
                                   const float* probabilities,
                                   const long long grid_height,
-                                  const long long grid_width,
-                                  const long long grid_depth)
+                                  const long long grid_width)
 {
     const int col = blockIdx.x * blockDim.x + threadIdx.x;
     const int row = blockIdx.y * blockDim.y + threadIdx.y;
-    const int lattice_id = blockIdx.z * blockDim.z + threadIdx.z;
 
     // check for out of bound access
-    if (row >= grid_height || col >= grid_width || lattice_id >= grid_depth) return;
+    if ((row >= grid_height) || (col >= grid_width)) return;
 
-    long long index = lattice_id * grid_width * grid_height + row * grid_width + col;
+    long long index = row * grid_width + col;
     // determine nearest neighbors on the opposite grid
     int lower_neighbor_row = (row + 1 < grid_height) ? row + 1 : 0;
     int upper_neighbor_row = (row - 1 >= 0) ? row - 1: grid_height - 1;
     int right_neighbor_col = (col + 1 < grid_width) ? col + 1 : 0;
     int left_neighbor_col = (col - 1 >= 0) ? col - 1: grid_width - 1;
-    int front_neighbor_lattice = (lattice_id - 1 >= 0) ? lattice_id - 1: grid_depth - 1;
-    int back_neighbor_lattice = (lattice_id + 1 <= grid_depth - 1) ? lattice_id + 1: 0;
 
     // Select off-column index based on color and row index parity:
     // One of the neighbors will always have the exact same index
@@ -132,22 +126,20 @@ __global__ void update_strategies(signed char* traders,
     // agent on the grid
     int horizontal_neighbor_col;
     // flip is black if lattice id is uneven
-    if ((lattice_id % 2) ? !is_black : is_black) {
+    if (is_black) {
         horizontal_neighbor_col = (row % 2) ? left_neighbor_col : right_neighbor_col;
     } else {
         horizontal_neighbor_col = (row % 2) ? right_neighbor_col : left_neighbor_col;
     }
     // Compute sum of nearest neighbor spins
     signed char neighbor_sum =
-            checkerboard_agents[lattice_id * grid_height * grid_width + upper_neighbor_row * grid_width + col]
-          + checkerboard_agents[lattice_id * grid_height * grid_width + lower_neighbor_row * grid_width + col]
+            checkerboard_agents[upper_neighbor_row * grid_width + col]
+          + checkerboard_agents[lower_neighbor_row * grid_width + col]
           + checkerboard_agents[index]
-          + checkerboard_agents[lattice_id * grid_height * grid_width + row * grid_width + horizontal_neighbor_col]
-          + checkerboard_agents[front_neighbor_lattice * grid_height * grid_width + row * grid_width + col]
-          + checkerboard_agents[back_neighbor_lattice * grid_height * grid_width + row * grid_width + col];
+          + checkerboard_agents[row * grid_width + horizontal_neighbor_col];
 
     // use one of the 26 precomputed values for p = 1 / (1 + exp(-2 * beta ...))
-    float probability = probabilities[7 * ((traders[index] < 0) ? 0 : 1) + (neighbor_sum + 6) / 2];
+    float probability = probabilities[5 * ((traders[index] < 0) ? 0 : 1) + (neighbor_sum + 4) / 2];
     traders[index] = random_values[index] < probability ? 1 : -1;
 }
 
@@ -160,25 +152,25 @@ float update(signed char *d_black_tiles,
            curandGenerator_t rng,
            const float reduced_alpha,
            const float reduced_j,
-           const long long grid_height, const long long grid_width, const long long grid_depth,
-           int threads = 8)
+           const long long grid_height, const long long grid_width,
+           int threads = 16)
 {
-    dim3 blocks(grid_height / threads, grid_width / threads, grid_depth / threads);
-    dim3 threads_per_block(threads / 2, threads, threads);
+    dim3 blocks(grid_height / threads, grid_width / threads);
+    dim3 threads_per_block(threads / 2, threads);
 
-    add_array<<<(grid_depth * grid_width / 2 * grid_height + 127) / 128, 128>>>
-    (d_black_tiles, d_white_tiles, d_black_plus_white, grid_width / 2 * grid_height * grid_depth);
-    long long global_market = sum_array(d_black_plus_white, grid_depth * grid_height * grid_width / 2);
-    float reduced_global_market = abs(global_market / static_cast<double>(grid_width * grid_height * grid_depth));
+    add_array<<<(grid_width / 2 * grid_height + 127) / 128, 128>>>
+    (d_black_tiles, d_white_tiles, d_black_plus_white, grid_width / 2 * grid_height);
+    long long global_market = sum_array(d_black_plus_white, grid_height * grid_width / 2);
+    float reduced_global_market = abs(global_market / static_cast<double>(grid_width * grid_height));
     float market_coupling = -reduced_alpha * reduced_global_market;
     // precompute possible exponentials
-    compute_probabilities<<<1, 14>>>(d_probabilities, market_coupling, reduced_j);
+    compute_probabilities<<<1, 10>>>(d_probabilities, market_coupling, reduced_j);
     CHECK_CUDA(cudaDeviceSynchronize());
-    CHECK_CURAND(curandGenerateUniform(rng, random_values, grid_depth * grid_height * grid_width / 2));
-    update_strategies<true><<<blocks, threads_per_block>>>(d_black_tiles, d_white_tiles, random_values, d_probabilities, grid_height, grid_width / 2, grid_depth);
+    CHECK_CURAND(curandGenerateUniform(rng, random_values, grid_height * grid_width / 2));
+    update_strategies<true><<<blocks, threads_per_block>>>(d_black_tiles, d_white_tiles, random_values, d_probabilities, grid_height, grid_width / 2);
 
-    CHECK_CURAND(curandGenerateUniform(rng, random_values, grid_depth * grid_height * grid_width / 2));
-    update_strategies<false><<<blocks, threads_per_block>>>(d_white_tiles, d_black_tiles, random_values, d_probabilities, grid_height, grid_width / 2, grid_depth);
+    CHECK_CURAND(curandGenerateUniform(rng, random_values, grid_height * grid_width / 2));
+    update_strategies<false><<<blocks, threads_per_block>>>(d_white_tiles, d_black_tiles, random_values, d_probabilities, grid_height, grid_width / 2);
 
     return reduced_global_market;
 }
@@ -187,7 +179,7 @@ float update(signed char *d_black_tiles,
 void write_lattice(signed char *d_black_tiles,
                    signed char *d_white_tiles,
                    std::string fileprefix,
-                   long long grid_width, long long grid_height, long long grid_depth,
+                   long long grid_width, long long grid_height,
                    float alpha, float beta, float j,
                    int global_market,
                    unsigned int seed,
@@ -196,46 +188,42 @@ void write_lattice(signed char *d_black_tiles,
     signed char *h_black_tiles, *h_white_tiles;
     bool use_black;
 
-    h_black_tiles = (signed char*)malloc(grid_depth * grid_height * grid_width / 2 * sizeof(*h_black_tiles));
-    h_white_tiles = (signed char*)malloc(grid_depth * grid_height * grid_width / 2 * sizeof(*h_white_tiles));
+    h_black_tiles = (signed char*)malloc(grid_height * grid_width / 2 * sizeof(*h_black_tiles));
+    h_white_tiles = (signed char*)malloc(grid_height * grid_width / 2 * sizeof(*h_white_tiles));
 
-    CHECK_CUDA(cudaMemcpy(h_white_tiles, d_white_tiles, grid_depth * grid_height * grid_width / 2 * sizeof(*d_white_tiles), cudaMemcpyDeviceToHost));
-    CHECK_CUDA(cudaMemcpy(h_black_tiles, d_black_tiles, grid_depth * grid_height * grid_width / 2 * sizeof(*d_black_tiles), cudaMemcpyDeviceToHost));
+    CHECK_CUDA(cudaMemcpy(h_white_tiles, d_white_tiles, grid_height * grid_width / 2 * sizeof(*d_white_tiles), cudaMemcpyDeviceToHost));
+    CHECK_CUDA(cudaMemcpy(h_black_tiles, d_black_tiles, grid_height * grid_width / 2 * sizeof(*d_black_tiles), cudaMemcpyDeviceToHost));
 
-    for (int lattice_id = 0; lattice_id < grid_depth; lattice_id++) {
-        std::string file_id = fileprefix + "lid=" + std::to_string(lattice_id) + ".dat";
-        std::ofstream file;
-        file.open(file_id);
+    std::string file_id = fileprefix + ".dat";
+    std::ofstream file;
+    file.open(file_id);
 
-        if (!file.is_open()) {
-            printf("Could not write to file\n");
-            return;
-        }
-
-        file << '#' << "lid = " << lattice_id << std::endl;
-        file << '#' << "grid = " << grid_width << 'x' << grid_height << 'x' << grid_depth << std::endl;
-        file << '#' << "beta = " << beta << std::endl;
-        file << '#' << "alpha = " << alpha << std::endl;
-        file << '#' << "j = " << j << std::endl;
-        file << '#' << "market = " << global_market << std::endl;
-        file << '#' << "seed = " << seed << std::endl;
-        file << '#' << "total updates = " << number_of_updates << std::endl;
-
-        for (int row = 0; row < grid_width; row++) {
-            for (int col = 0; col < grid_height; col++) {
-                    use_black = row % 2 == col % 2;
-                    if (lattice_id % 2) use_black = !use_black;
-
-                    if (use_black) {
-                        file << (int)h_black_tiles[lattice_id * grid_height * grid_width / 2 + row * grid_width / 2 + col / 2] << " ";
-                    } else {
-                        file << (int)h_white_tiles[lattice_id * grid_height * grid_width / 2 + row * grid_width / 2 + col / 2] << " ";
-                    }
-            }
-            file << std::endl;
-        }
-        file.close();
+    if (!file.is_open()) {
+        printf("Could not write to file\n");
+        return;
     }
+
+    file << '#' << "grid = " << grid_width << 'x' << grid_height << std::endl;
+    file << '#' << "beta = " << beta << std::endl;
+    file << '#' << "alpha = " << alpha << std::endl;
+    file << '#' << "j = " << j << std::endl;
+    file << '#' << "market = " << global_market << std::endl;
+    file << '#' << "seed = " << seed << std::endl;
+    file << '#' << "total updates = " << number_of_updates << std::endl;
+
+    for (int row = 0; row < grid_width; row++) {
+        for (int col = 0; col < grid_height; col++) {
+                use_black = row % 2 == col % 2;
+
+                if (use_black) {
+                    file << (int)h_black_tiles[row * grid_width / 2 + col / 2] << " ";
+                } else {
+                    file << (int)h_white_tiles[row * grid_width / 2 + col / 2] << " ";
+                }
+        }
+        file << std::endl;
+    }
+    file.close();
 
     free(h_black_tiles);
     free(h_white_tiles);
@@ -243,61 +231,59 @@ void write_lattice(signed char *d_black_tiles,
 
 
 void read_from_file(std::string fileprefix, signed char* d_black_tiles, signed char* d_white_tiles,
-                    const long long grid_height, const long long grid_width, const long long grid_depth)
+                    const long long grid_height, const long long grid_width)
 {
     std::ifstream file;
     std::string filename;
     signed char* h_black_tiles;
     signed char* h_white_tiles;
 
-    h_black_tiles = (signed char*) malloc(grid_depth * grid_height * grid_width / 2 * sizeof(*h_black_tiles));
-    h_white_tiles = (signed char*) malloc(grid_depth * grid_height * grid_width / 2 * sizeof(*h_white_tiles));
+    h_black_tiles = (signed char*) malloc(grid_height * grid_width / 2 * sizeof(*h_black_tiles));
+    h_white_tiles = (signed char*) malloc(grid_height * grid_width / 2 * sizeof(*h_white_tiles));
 
     std::string line = "";
     std::string tmp = "";
     bool use_black;
 
-    for (int lattice_id = 0; lattice_id < grid_depth; lattice_id++) {
-        filename = fileprefix + std::to_string(lattice_id) + ".dat";
-        file.open(filename);
-        if (!file.is_open()) {
-            printf("Input file could not be read");
-            return;
-        }
-        line = "";
-        tmp = "";
-        int row = 0;
-        int col = 0;
 
-        while (getline(file, line)) {
-
-            if (line[0] == '#') continue;
-            col = 0;
-            for (int idx = 0; idx < line.length(); idx++) {
-                // checks for seperator character
-                if (line[idx] != ' ' and line[idx] != '\n') {
-                    tmp += line[idx];
-                }
-                else {
-                    use_black = row % 2 == col % 2;
-                    if (lattice_id % 2) use_black = !use_black;
-
-                    if (use_black) {
-                        h_black_tiles[lattice_id * grid_height * grid_width / 2 + row * grid_width / 2 + col / 2] = std::stoi(tmp);
-                    } else {
-                        h_white_tiles[lattice_id * grid_height * grid_width / 2 + row * grid_width / 2 + col / 2] = std::stoi(tmp);
-                    }
-                    tmp = "";
-                    col++;
-                }
-            }
-            row++;
-        }
-        file.close();
+    filename = fileprefix + ".dat";
+    file.open(filename);
+    if (!file.is_open()) {
+        printf("Input file could not be read");
+        return;
     }
+    line = "";
+    tmp = "";
+    int row = 0;
+    int col = 0;
 
-    CHECK_CUDA(cudaMemcpy(d_black_tiles, h_black_tiles, grid_depth * grid_height * grid_width / 2 * sizeof(*h_black_tiles), cudaMemcpyHostToDevice));
-    CHECK_CUDA(cudaMemcpy(d_white_tiles, h_white_tiles, grid_depth * grid_height * grid_width / 2 * sizeof(*h_white_tiles), cudaMemcpyHostToDevice));
+    while (getline(file, line)) {
+
+        if (line[0] == '#') continue;
+        col = 0;
+        for (int idx = 0; idx < line.length(); idx++) {
+            // checks for seperator character
+            if (line[idx] != ' ' and line[idx] != '\n') {
+                tmp += line[idx];
+            }
+            else {
+                use_black = row % 2 == col % 2;
+
+                if (use_black) {
+                    h_black_tiles[row * grid_width / 2 + col / 2] = std::stoi(tmp);
+                } else {
+                    h_white_tiles[row * grid_width / 2 + col / 2] = std::stoi(tmp);
+                }
+                tmp = "";
+                col++;
+            }
+        }
+        row++;
+    }
+    file.close();
+
+    CHECK_CUDA(cudaMemcpy(d_black_tiles, h_black_tiles, grid_height * grid_width / 2 * sizeof(*h_black_tiles), cudaMemcpyHostToDevice));
+    CHECK_CUDA(cudaMemcpy(d_white_tiles, h_white_tiles, grid_height * grid_width / 2 * sizeof(*h_white_tiles), cudaMemcpyHostToDevice));
 
     free(h_black_tiles);
     free(h_white_tiles);

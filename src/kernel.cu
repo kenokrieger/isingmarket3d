@@ -60,13 +60,12 @@ int main(int argc, char** argv) {
     // agent. Agents will choose a strategy contrary to the sign of the
     // global market.
     int device_id = 0;
-    string config_filename = (argc == 1) ? "ising3d.conf" : argv[1];
+    string config_filename = (argc == 1) ? "ising2d.conf" : argv[1];
     map<string, string> config = read_config_file(config_filename);
 
     //TODO ternary operator to replace with default arg if not passed.
     const long long grid_height = std::stoll(config["grid_height"]);
     const long long grid_width = std::stoll(config["grid_width"]);
-    const long long grid_depth = std::stoll(config["grid_depth"]);
     unsigned int total_updates = std::stoul(config["total_updates"]);
     unsigned int seed = std::stoul(config["seed"]);
     float alpha = std::stof(config["alpha"]);
@@ -98,13 +97,13 @@ int main(int argc, char** argv) {
     CHECK_CURAND(curandSetGeneratorOffset(rng, rng_offset));
 
     // allocate memory for the arrays
-    CHECK_CUDA(cudaMalloc(&d_white_tiles, grid_depth * grid_height * grid_width / 2 * sizeof(*d_white_tiles)));
-    CHECK_CUDA(cudaMalloc(&d_black_tiles, grid_depth * grid_height * grid_width / 2 * sizeof(*d_black_tiles)));
-    CHECK_CUDA(cudaMalloc(&d_black_plus_white, grid_depth * grid_height * grid_width / 2 * sizeof(*d_black_plus_white)));
-    CHECK_CUDA(cudaMalloc(&random_values, grid_depth * grid_height * grid_width / 2 * sizeof(*random_values)));
-    CHECK_CUDA(cudaMalloc(&d_probabilities, 26 * sizeof(*random_values)));
+    CHECK_CUDA(cudaMalloc(&d_white_tiles, grid_height * grid_width / 2 * sizeof(*d_white_tiles)));
+    CHECK_CUDA(cudaMalloc(&d_black_tiles, grid_height * grid_width / 2 * sizeof(*d_black_tiles)));
+    CHECK_CUDA(cudaMalloc(&d_black_plus_white, grid_height * grid_width / 2 * sizeof(*d_black_plus_white)));
+    CHECK_CUDA(cudaMalloc(&random_values, grid_height * grid_width / 2 * sizeof(*random_values)));
+    CHECK_CUDA(cudaMalloc(&d_probabilities, 10 * sizeof(*random_values)));
 
-    init_traders(d_black_tiles, d_white_tiles, rng, random_values, grid_width, grid_height, grid_depth);
+    init_traders(d_black_tiles, d_white_tiles, rng, random_values, grid_width, grid_height);
     // Synchronize operations on the GPU with CPU
     CHECK_CUDA(cudaDeviceSynchronize());
 
@@ -113,7 +112,7 @@ int main(int argc, char** argv) {
     timer::time_point start = timer::now();
     for (int iteration = 0; iteration < total_updates; iteration++) {
         float global_market = update(d_black_tiles, d_white_tiles, d_black_plus_white, random_values,
-                                     d_probabilities, rng, reduced_alpha, reduced_j, grid_height, grid_width, grid_depth);
+                                     d_probabilities, rng, reduced_alpha, reduced_j, grid_height, grid_width);
         file << global_market << std::endl;
     }
     timer::time_point stop = timer::now();
@@ -122,12 +121,12 @@ int main(int argc, char** argv) {
     auto t = std::time(nullptr);
     auto tm = *std::localtime(&t);
     file << std::put_time(&tm, "%d.%m.%Y %H:%M:%S") << std::endl;
-    file << grid_depth << 'x' << grid_width << 'x' << grid_height << std::endl;
+    file << grid_width << 'x' << grid_height << std::endl;
     file << "seed: " << seed << std::endl;
     file << "total updates: " << total_updates << std::endl;
 
     double duration = (double) std::chrono::duration_cast<std::chrono::microseconds>(stop - start).count();
-    double spin_updates_per_nanosecond = total_updates * grid_depth * grid_width * grid_height / duration * 1e-3;
+    double spin_updates_per_nanosecond = total_updates * grid_width * grid_height / duration * 1e-3;
     printf("Total computing time: %f\n", duration * 1e-6);
     file << "total computing time: " << std::to_string(duration * 1e-6) << std::endl;
     printf("Updates per nanosecond: %f\n", spin_updates_per_nanosecond);
@@ -138,9 +137,5 @@ int main(int argc, char** argv) {
     file << "updates/ns: " << spin_updates_per_nanosecond << std::endl;
     file.close();
     CHECK_CUDA(cudaDeviceSynchronize());
-
-    float global_market = update(d_black_tiles, d_white_tiles, d_black_plus_white, random_values,
-                               d_probabilities, rng, reduced_alpha, reduced_j, grid_height, grid_width, grid_depth);
-    printf("Final magnetisation: %f\n", global_market);
     return 0;
 }

@@ -852,3 +852,17 @@ total updates: 1000
 total computing time: 2.700009
 updates per nanosecond: 6.213763
 -----------------------------------
+21.09.2021 21:42:45
+256x256
+seed: 2458242462
+total updates: 1000
+total computing time: 0.060251
+updates per nanosecond: 1.087716
+-----------------------------------
+21.09.2021 21:43:09
+2048x2048
+seed: 2458242462
+total updates: 1000
+total computing time: 0.666547
+updates per nanosecond: 6.292586
+-----------------------------------

@@ -13,7 +13,6 @@ __global__ void fill_array(signed char* traders,
                            const float* __restrict__ random_values,
                            const long long grid_height,
                            const long long grid_width,
-                           const long long grid_depth,
                            float weight = 0.5);
     /*
     Initialise a given array of traders to contain values of either -1 or 1.
@@ -57,8 +56,8 @@ __global__ void compute_probabilities(float* probabilities, const float market_c
 
 void init_traders(signed char* d_black_tiles, signed char* d_white_tiles,
                   curandGenerator_t rng, float* random_values,
-                  long long grid_width, long long grid_height, long long grid_depth,
-                  int threads = 8);
+                  long long grid_width, long long grid_height,
+                  int threads = 16);
     /*
     Initialise two arrays of traders with randomly distributed values of +1 or -1.
 
@@ -80,8 +79,7 @@ __global__ void update_strategies(signed char* traders,
                                   const float* __restrict__ random_values,
                                   const float* probabilities,
                                   const long long grid_height,
-                                  const long long grid_width,
-                                  const long long grid_depth);
+                                  const long long grid_width);
     /*
     Update the strategy of each trader. The update utilises the metropolis
     algorithm where traders and their respective neighbors are updated
@@ -116,8 +114,8 @@ float update(signed char *d_black_tiles,
            curandGenerator_t rng,
            const float reduced_alpha,
            const float reduced_j,
-           const long long grid_height, const long long grid_width, const long long grid_depth,
-           int threads = 8);
+           const long long grid_height, const long long grid_width,
+           int threads = 16);
 
     /*
     Update all of the traders by updating the white and black tiles in succesion.
@@ -144,7 +142,7 @@ float update(signed char *d_black_tiles,
 void write_lattice(signed char *d_black_tiles,
                    signed char *d_white_tiles,
                    std::string fileprefix,
-                   long long grid_width, long long grid_height, long long grid_depth,
+                   long long grid_width, long long grid_height,
                    float alpha, float beta, float j,
                    int global_market,
                    unsigned int seed,
@@ -174,7 +172,7 @@ void write_lattice(signed char *d_black_tiles,
 void read_from_file(std::string fileprefix,
                     signed char* d_black_tiles,
                     signed char* d_white_tiles,
-                    const long long grid_height, const long long grid_width, const long long grid_depth);
+                    const long long grid_height, const long long grid_width);
     /*
     Reads an existing lattice configuration from multiple files.
 
