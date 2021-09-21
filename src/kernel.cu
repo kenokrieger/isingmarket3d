@@ -102,7 +102,7 @@ int main(int argc, char** argv) {
     CHECK_CUDA(cudaMalloc(&d_black_tiles, grid_depth * grid_height * grid_width / 2 * sizeof(*d_black_tiles)));
     CHECK_CUDA(cudaMalloc(&d_black_plus_white, grid_depth * grid_height * grid_width / 2 * sizeof(*d_black_plus_white)));
     CHECK_CUDA(cudaMalloc(&random_values, grid_depth * grid_height * grid_width / 2 * sizeof(*random_values)));
-    CHECK_CUDA(cudaMalloc(&d_probabilities, (int)26 * sizeof(*random_values)));
+    CHECK_CUDA(cudaMalloc(&d_probabilities, 26 * sizeof(*random_values)));
 
     init_traders(d_black_tiles, d_white_tiles, rng, random_values, grid_width, grid_height, grid_depth);
     // Synchronize operations on the GPU with CPU
@@ -112,10 +112,9 @@ int main(int argc, char** argv) {
     file.open("magnetisation.dat");
     timer::time_point start = timer::now();
     for (int iteration = 0; iteration < total_updates; iteration++) {
-        int global_market = update(d_black_tiles, d_white_tiles, d_black_plus_white, random_values,
-                                   d_probabilities, rng, reduced_alpha, reduced_j, grid_height, grid_width, grid_depth);
-        if (iteration % 10 == 0)
-            file << global_market << ' ' << std::flush;
+        float global_market = update(d_black_tiles, d_white_tiles, d_black_plus_white, random_values,
+                                     d_probabilities, rng, reduced_alpha, reduced_j, grid_height, grid_width, grid_depth);
+        file << global_market << std::endl;
     }
     timer::time_point stop = timer::now();
     file.close();
@@ -128,17 +127,20 @@ int main(int argc, char** argv) {
     file << "total updates: " << total_updates << std::endl;
 
     double duration = (double) std::chrono::duration_cast<std::chrono::microseconds>(stop - start).count();
-    double spin_updates_per_nanosecond = grid_depth * grid_width * grid_height / duration * 1e-3 * total_updates;
+    double spin_updates_per_nanosecond = total_updates * grid_depth * grid_width * grid_height / duration * 1e-3;
     printf("Total computing time: %f\n", duration * 1e-6);
     file << "total computing time: " << std::to_string(duration * 1e-6) << std::endl;
     printf("Updates per nanosecond: %f\n", spin_updates_per_nanosecond);
     file << "updates per nanosecond: " << std::to_string(spin_updates_per_nanosecond) << std::endl;
     file << "-----------------------------------" << std::endl;
     file.close();
+    file.open("log");
+    file << "updates/ns: " << spin_updates_per_nanosecond << std::endl;
+    file.close();
     CHECK_CUDA(cudaDeviceSynchronize());
 
-    int global_market = update(d_black_tiles, d_white_tiles, d_black_plus_white, random_values,
+    float global_market = update(d_black_tiles, d_white_tiles, d_black_plus_white, random_values,
                                d_probabilities, rng, reduced_alpha, reduced_j, grid_height, grid_width, grid_depth);
-    printf("Final magnetisation: %d\n", global_market);
+    printf("Final magnetisation: %f\n", global_market);
     return 0;
 }

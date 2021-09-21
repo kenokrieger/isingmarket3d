@@ -16,13 +16,13 @@ __global__ void fill_array(signed char* traders,
                            const long long grid_height,
                            const long long grid_width,
                            const long long grid_depth,
-                           float weight = 0.5f)
+                           float weight = 0.5)
 {
-    const int row = blockIdx.y;
+    const int row = blockIdx.y * blockDim.y + threadIdx.y;
     const int col = blockDim.x * blockIdx.x + threadIdx.x;
-    const int lattice_id = blockIdx.z;
+    const int lattice_id = blockIdx.z * blockDim.z + threadIdx.z;
     // check for out of bound access
-    if (row >= grid_height || col >= grid_width || lattice_id >= grid_depth) return;
+    if ((row >= grid_height) || (col >= grid_width) || (lattice_id >= grid_depth)) return;
     // use random number between 0.0 and 1.0 generated beforehand
     long long index = lattice_id * grid_width * grid_height + row * grid_width + col;
     traders[index] = (random_values[index] < weight) ? -1 : 1;
@@ -40,10 +40,10 @@ __global__ void add_array(const signed char* black_tiles,
 }
 
 // Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
-int sum_array(const signed char* d_arr, int size)
+long long sum_array(const signed char* d_arr, long long size)
 {
     // Reduce
-    int* d_sum;
+    long long* d_sum;
     int nchunks = (size + CUB_CHUNK_SIZE - 1)/ CUB_CHUNK_SIZE;
     CHECK_CUDA(cudaMalloc(&d_sum, nchunks * sizeof(*d_sum)));
     size_t temp_storage_bytes = 0;
@@ -55,14 +55,18 @@ int sum_array(const signed char* d_arr, int size)
     CHECK_CUDA(cudaMalloc(&d_temp_storage, temp_storage_bytes));
 
     for (int i = 0; i < nchunks; i++) {
-        CHECK_CUDA(cub::DeviceReduce::Sum(d_temp_storage, temp_storage_bytes, &d_arr[i * CUB_CHUNK_SIZE], d_sum + i,
-                             std::min((long long) CUB_CHUNK_SIZE, size - i * CUB_CHUNK_SIZE)));
+        CHECK_CUDA(
+          cub::DeviceReduce::Sum(
+            d_temp_storage, temp_storage_bytes, &d_arr[i * CUB_CHUNK_SIZE], d_sum + i,
+            std::min((long long) CUB_CHUNK_SIZE, size - i * CUB_CHUNK_SIZE)
+          )
+        );
     }
 
-    int* h_sum;
-    h_sum = (int*)malloc(nchunks * sizeof(*h_sum));
+    long long* h_sum;
+    h_sum = (long long*)malloc(nchunks * sizeof(*h_sum));
     CHECK_CUDA(cudaMemcpy(h_sum, d_sum, nchunks * sizeof(*d_sum), cudaMemcpyDeviceToHost));
-    int total_sum = 0;
+    long long total_sum = 0;
 
     for (int i = 0; i < nchunks; i++) {
       total_sum += h_sum[i];
@@ -77,13 +81,14 @@ int sum_array(const signed char* d_arr, int size)
 void init_traders(signed char* d_black_tiles, signed char* d_white_tiles,
                   curandGenerator_t rng, float* random_values,
                   long long grid_width, long long grid_height, long long grid_depth,
-                  int threads = 64)
+                  int threads = 8)
 {
-    dim3 blocks((grid_width / 2 + threads - 1) / threads, grid_height, grid_depth);
+    dim3 blocks(grid_width / (2 * threads), grid_height / threads, grid_depth / threads);
+    dim3 threads_per_block(threads, threads, threads);
     CHECK_CURAND(curandGenerateUniform(rng, random_values, grid_depth * grid_height * grid_width / 2));
-    fill_array<<<blocks, threads>>>(d_black_tiles, random_values, grid_height, grid_width / 2, grid_depth);
+    fill_array<<<blocks, threads_per_block>>>(d_black_tiles, random_values, grid_height, grid_width / 2, grid_depth);
     CHECK_CURAND(curandGenerateUniform(rng, random_values, grid_depth * grid_height * grid_width / 2));
-    fill_array<<<blocks, threads>>>(d_white_tiles, random_values, grid_height, grid_width / 2, grid_depth);
+    fill_array<<<blocks, threads_per_block>>>(d_white_tiles, random_values, grid_height, grid_width / 2, grid_depth);
 }
 
 
@@ -106,7 +111,7 @@ __global__ void update_strategies(signed char* traders,
 {
     const int col = blockIdx.x * blockDim.x + threadIdx.x;
     const int row = blockIdx.y * blockDim.y + threadIdx.y;
-    const int lattice_id = blockIdx.z;
+    const int lattice_id = blockIdx.z * blockDim.z + threadIdx.z;
 
     // check for out of bound access
     if (row >= grid_height || col >= grid_width || lattice_id >= grid_depth) return;
@@ -147,7 +152,7 @@ __global__ void update_strategies(signed char* traders,
 }
 
 
-int update(signed char *d_black_tiles,
+float update(signed char *d_black_tiles,
            signed char *d_white_tiles,
            signed char *d_black_plus_white,
            float* random_values,
@@ -156,14 +161,15 @@ int update(signed char *d_black_tiles,
            const float reduced_alpha,
            const float reduced_j,
            const long long grid_height, const long long grid_width, const long long grid_depth,
-           int threads = 16)
+           int threads = 8)
 {
-    dim3 blocks(grid_width / threads, grid_width / threads, grid_depth);
-    dim3 threads_per_block(threads / 2, threads);
+    dim3 blocks(grid_height / threads, grid_width / threads, grid_depth / threads);
+    dim3 threads_per_block(threads / 2, threads, threads);
 
-    add_array<<<(grid_depth * grid_width / 2 * grid_height + 127) / 128, 128>>>(d_black_tiles, d_white_tiles, d_black_plus_white, grid_width / 2 * grid_height * grid_depth);
-    double global_market = sum_array(d_black_plus_white, grid_depth * grid_height * grid_width / 2);
-    float reduced_global_market = abs(global_market / (grid_width * grid_height * grid_depth));
+    add_array<<<(grid_depth * grid_width / 2 * grid_height + 127) / 128, 128>>>
+    (d_black_tiles, d_white_tiles, d_black_plus_white, grid_width / 2 * grid_height * grid_depth);
+    long long global_market = sum_array(d_black_plus_white, grid_depth * grid_height * grid_width / 2);
+    float reduced_global_market = abs(global_market / static_cast<double>(grid_width * grid_height * grid_depth));
     float market_coupling = -reduced_alpha * reduced_global_market;
     // precompute possible exponentials
     compute_probabilities<<<1, 14>>>(d_probabilities, market_coupling, reduced_j);
@@ -174,7 +180,7 @@ int update(signed char *d_black_tiles,
     CHECK_CURAND(curandGenerateUniform(rng, random_values, grid_depth * grid_height * grid_width / 2));
     update_strategies<false><<<blocks, threads_per_block>>>(d_white_tiles, d_black_tiles, random_values, d_probabilities, grid_height, grid_width / 2, grid_depth);
 
-    return global_market;
+    return reduced_global_market;
 }
 
 

@@ -14,7 +14,7 @@ __global__ void fill_array(signed char* traders,
                            const long long grid_height,
                            const long long grid_width,
                            const long long grid_depth,
-                           float weight = 0.5f);
+                           float weight = 0.5);
     /*
     Initialise a given array of traders to contain values of either -1 or 1.
 
@@ -58,7 +58,7 @@ __global__ void compute_probabilities(float* probabilities, const float market_c
 void init_traders(signed char* d_black_tiles, signed char* d_white_tiles,
                   curandGenerator_t rng, float* random_values,
                   long long grid_width, long long grid_height, long long grid_depth,
-                  int threads = 64);
+                  int threads = 8);
     /*
     Initialise two arrays of traders with randomly distributed values of +1 or -1.
 
@@ -70,7 +70,7 @@ void init_traders(signed char* d_black_tiles, signed char* d_white_tiles,
         grid_height: The height of the grid.
         grid_width: The width of the grid.
         grid_depth: The depth of the grid.
-        threads: The number of threads to invoke the kernel with. Defaults to 64.
+        threads: The number of threads to invoke the kernel with. Defaults to 8.
     */
 
 
@@ -108,7 +108,7 @@ __global__ void update_strategies(signed char* traders,
     */
 
 
-int update(signed char *d_black_tiles,
+float update(signed char *d_black_tiles,
            signed char *d_white_tiles,
            signed char *d_black_plus_white,
            float* random_values,
@@ -117,7 +117,7 @@ int update(signed char *d_black_tiles,
            const float reduced_alpha,
            const float reduced_j,
            const long long grid_height, const long long grid_width, const long long grid_depth,
-           int threads = 16);
+           int threads = 8);
 
     /*
     Update all of the traders by updating the white and black tiles in succesion.
@@ -188,7 +188,7 @@ void read_from_file(std::string fileprefix,
     */
 
 // Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
-int sum_array(const signed char* d_array, int size);
+long long sum_array(const signed char* d_array, int size);
     /*
     Compute the total sum over a given array.
 
