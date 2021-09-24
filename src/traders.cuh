@@ -54,7 +54,8 @@ __global__ void compute_probabilities(float* probabilities, const float market_c
     */
 
 
-void init_traders(signed char* d_black_tiles, signed char* d_white_tiles,
+void init_traders(int device_id,
+                  signed char* d_black_tiles, signed char* d_white_tiles,
                   curandGenerator_t rng, float* random_values,
                   long long grid_width, long long grid_height,
                   int threads = 16);
@@ -106,16 +107,17 @@ __global__ void update_strategies(signed char* traders,
     */
 
 
-float update(signed char *d_black_tiles,
-           signed char *d_white_tiles,
-           signed char *d_black_plus_white,
-           float* random_values,
-           float* d_probabilities,
-           curandGenerator_t rng,
-           const float reduced_alpha,
-           const float reduced_j,
-           const long long grid_height, const long long grid_width,
-           int threads = 16);
+float update(int device_id,
+             signed char *d_black_tiles,
+             signed char *d_white_tiles,
+             signed char *d_black_plus_white,
+             float* random_values,
+             float* d_probabilities,
+             curandGenerator_t rng,
+             const float reduced_alpha,
+             const float reduced_j,
+             const long long grid_height, const long long grid_width,
+             int threads = 16);
 
     /*
     Update all of the traders by updating the white and black tiles in succesion.

@@ -76,15 +76,18 @@ long long sum_array(const signed char* d_arr, long long size)
 }
 
 
-void init_traders(signed char* d_black_tiles, signed char* d_white_tiles,
+void init_traders(int device_id,
+                  signed char* d_black_tiles, signed char* d_white_tiles,
                   curandGenerator_t rng, float* random_values,
                   long long grid_width, long long grid_height,
                   int threads = 8)
 {
     dim3 blocks(grid_width / (2 * threads), grid_height / threads);
     dim3 threads_per_block(threads, threads);
+    CHECK_CUDA(cudaSetDevice(device_id));
     CHECK_CURAND(curandGenerateUniform(rng, random_values, grid_height * grid_width / 2));
     fill_array<<<blocks, threads_per_block>>>(d_black_tiles, random_values, grid_height, grid_width / 2);
+    CHECK_CUDA(cudaSetDevice(device_id));
     CHECK_CURAND(curandGenerateUniform(rng, random_values, grid_height * grid_width / 2));
     fill_array<<<blocks, threads_per_block>>>(d_white_tiles, random_values, grid_height, grid_width / 2);
 }
@@ -164,11 +167,13 @@ float update(signed char *d_black_tiles,
     float reduced_global_market = abs(global_market / static_cast<double>(grid_width * grid_height));
     float market_coupling = -reduced_alpha * reduced_global_market;
     // precompute possible exponentials
+    CHECK_CUDA(cudaSetDevice(device_id));
     compute_probabilities<<<1, 10>>>(d_probabilities, market_coupling, reduced_j);
-    CHECK_CUDA(cudaDeviceSynchronize());
+    CHECK_CUDA(cudaSetDevice(device_id));
     CHECK_CURAND(curandGenerateUniform(rng, random_values, grid_height * grid_width / 2));
     update_strategies<true><<<blocks, threads_per_block>>>(d_black_tiles, d_white_tiles, random_values, d_probabilities, grid_height, grid_width / 2);
 
+		CHECK_CUDA(cudaSetDevice(device_id));
     CHECK_CURAND(curandGenerateUniform(rng, random_values, grid_height * grid_width / 2));
     update_strategies<false><<<blocks, threads_per_block>>>(d_white_tiles, d_black_tiles, random_values, d_probabilities, grid_height, grid_width / 2);
 

@@ -71,6 +71,7 @@ int main(int argc, char** argv) {
     float alpha = std::stof(config["alpha"]);
     float j = std::stof(config["j"]);
     float beta = std::stof(config["beta"]);
+    int device_id = std::stoi(config["GPU"]);
     // the rng offset can be used to return the random number generator to a specific
     // state of a simulation. It is equal to the total number of random numbers
     // generated. Meaning the following equation holds for this specific case:
@@ -103,7 +104,7 @@ int main(int argc, char** argv) {
     CHECK_CUDA(cudaMalloc(&random_values, grid_height * grid_width / 2 * sizeof(*random_values)));
     CHECK_CUDA(cudaMalloc(&d_probabilities, 10 * sizeof(*random_values)));
 
-    init_traders(d_black_tiles, d_white_tiles, rng, random_values, grid_width, grid_height);
+    init_traders(device_id, d_black_tiles, d_white_tiles, rng, random_values, grid_width, grid_height);
     // Synchronize operations on the GPU with CPU
     CHECK_CUDA(cudaDeviceSynchronize());
 
@@ -111,7 +112,7 @@ int main(int argc, char** argv) {
     file.open("magnetisation.dat");
     timer::time_point start = timer::now();
     for (int iteration = 0; iteration < total_updates; iteration++) {
-        float global_market = update(d_black_tiles, d_white_tiles, d_black_plus_white, random_values,
+        float global_market = update(device_id, d_black_tiles, d_white_tiles, d_black_plus_white, random_values,
                                      d_probabilities, rng, reduced_alpha, reduced_j, grid_height, grid_width);
         file << global_market << std::endl;
     }
